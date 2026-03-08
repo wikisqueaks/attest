@@ -1,0 +1,103 @@
+#' Check Remote Sources for Changes
+#'
+#' Sends HTTP HEAD requests to the original URLs and compares ETag,
+#' Last-Modified, and Content-Length headers against the recorded values.
+#' Does not re-download any files.
+#'
+#' If the server did not provide comparable headers on the original download
+#' or the current HEAD request, the file is reported as `"no_comparison"`
+#' rather than `"unchanged"`.
+#'
+#' @param source A source name (character) or [acq_source()] object.
+#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @return An `acq_check` object (list with `source` and `files`), invisibly.
+#' @keywords internal
+acq_check <- function(source, store = NULL) {
+  name <- resolve_source_name(source)
+  if (is.null(store)) store <- acq_store()
+
+  prov_path <- provenance_path(store, name)
+  if (!file.exists(prov_path)) {
+    cli::cli_abort("No provenance record found for {.val {name}}.")
+  }
+
+  prov <- jsonlite::read_json(prov_path)
+  results <- list()
+
+  for (fname in names(prov$files)) {
+    file_info <- prov$files[[fname]]
+    url <- file_info$url
+
+    cli::cli_alert("Checking {.url {url}}")
+
+    resp <- tryCatch(
+      {
+        acq_request(url) |>
+          httr2::req_method("HEAD") |>
+          httr2::req_perform()
+      },
+      error = function(e) {
+        cli::cli_alert_warning(
+          "Could not reach {.url {url}}: {conditionMessage(e)}"
+        )
+        NULL
+      }
+    )
+
+    if (is.null(resp)) {
+      results[[fname]] <- list(status = "unreachable", url = url)
+      next
+    }
+
+    remote_etag <- httr2::resp_header(resp, "ETag")
+    remote_modified <- httr2::resp_header(resp, "Last-Modified")
+    remote_length <- httr2::resp_header(resp, "Content-Length")
+
+    changes <- character(0)
+    compared <- FALSE
+
+    if (!is.null(remote_etag) && !is.null(file_info$http_etag)) {
+      compared <- TRUE
+      if (remote_etag != file_info$http_etag) {
+        changes <- c(changes, "ETag changed")
+      }
+    }
+
+    if (!is.null(remote_modified) && !is.null(file_info$http_last_modified)) {
+      compared <- TRUE
+      if (remote_modified != file_info$http_last_modified) {
+        changes <- c(changes, "Last-Modified changed")
+      }
+    }
+
+    if (!is.null(remote_length)) {
+      compared <- TRUE
+      local_size <- file_info$size %||% 0
+      if (as.numeric(remote_length) != local_size) {
+        changes <- c(changes, "Content-Length changed")
+      }
+    }
+
+    if (length(changes) > 0) {
+      results[[fname]] <- list(
+        status = "possibly_changed", url = url, changes = changes
+      )
+      cli::cli_alert_warning(
+        "{.file {fname}}: {paste(changes, collapse = ', ')}"
+      )
+    } else if (!compared) {
+      results[[fname]] <- list(status = "no_comparison", url = url)
+      cli::cli_alert_info(
+        "{.file {fname}}: No headers available for comparison"
+      )
+    } else {
+      results[[fname]] <- list(status = "unchanged", url = url)
+      cli::cli_alert_success("{.file {fname}}: No changes detected")
+    }
+  }
+
+  invisible(structure(
+    list(source = name, files = results),
+    class = "acq_check"
+  ))
+}

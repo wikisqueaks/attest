@@ -1,0 +1,126 @@
+---
+title: "Getting started with acquire"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with acquire}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Researchers working with external data — from government portals, institutional
+repositories, or public APIs — need to document where that data came from. The
+`acquire` package downloads files from known URLs and produces a provenance
+record alongside the data: SHA-256 hashes, timestamps, HTTP metadata, and a
+BibTeX citation.
+
+This vignette walks through the workflow using the USGS earthquake feed.
+
+## Setup
+
+```{r setup}
+library(acquire)
+```
+
+Set a store path — the directory where `acquire` keeps downloaded files and
+their provenance records:
+
+```{r init}
+store <- tempfile("quake-store")
+acq_store(store)
+```
+
+In practice you'd use a permanent path like `"data/raw"` rather than a
+temporary directory. The directory is created automatically on first download.
+
+## Define a data source
+
+An `acq_source` object describes where data lives and what it is. The metadata
+you provide here flows into the provenance record and BibTeX citation:
+
+```{r source}
+usgs_quakes <- acq_source(
+  name = "usgs-earthquakes-m4.5",
+  landing_url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/csv.php",
+  data_urls = c(
+    "earthquakes.csv" = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.csv"
+  ),
+  title = "USGS M4.5+ Earthquakes, Past 30 Days",
+  publisher = "U.S. Geological Survey",
+  year = format(Sys.Date(), "%Y"),
+  description = "Magnitude 4.5+ earthquakes from the past 30 days, updated every minute."
+)
+
+usgs_quakes
+```
+
+Named entries in `data_urls` control the local filename. Unnamed entries use
+the URL basename.
+
+## Download and document
+
+`acq_download()` fetches all data files, computes SHA-256 hashes, records HTTP
+metadata (ETag, Last-Modified, Content-Type), and writes a provenance record:
+
+```{r download}
+acq_download(usgs_quakes)
+```
+
+The source directory now contains the data alongside its provenance record:
+
+```{r files}
+list.files(file.path(store, "usgs-earthquakes-m4-5"), recursive = TRUE, all.files = TRUE, no.. = TRUE)
+```
+
+## The provenance record
+
+The heart of the package is `provenance.json` — a structured record of
+exactly what was downloaded, from where, and when. You can read it as a list:
+
+```{r provenance}
+prov <- acq_read_provenance(usgs_quakes)
+prov$files[["earthquakes.csv"]][c("url", "downloaded", "size", "sha256")]
+```
+
+This record is written at download time and never modified unless you
+re-download the source. The SHA-256 hash proves the file hasn't changed since
+acquisition.
+
+## Verify integrity
+
+`acq_verify()` re-computes hashes and compares them to the recorded values.
+This catches accidental edits, corruption, or file moves:
+
+```{r verify}
+acq_verify(usgs_quakes)
+```
+
+## Citation
+
+`acq_download()` automatically generates a BibTeX citation in
+`data-sources.bib`. You can also regenerate it manually:
+
+```{r cite}
+acq_cite(usgs_quakes)
+```
+
+The resulting `data-sources.bib` can be used directly with R Markdown, Quarto,
+or LaTeX.
+
+## Status overview
+
+`acq_status()` gives a summary of all sources in the store:
+
+```{r status}
+acq_status()
+```
+
+```{r cleanup, include = FALSE}
+unlink(store, recursive = TRUE)
+```
