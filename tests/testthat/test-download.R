@@ -71,7 +71,7 @@ test_that("acq_download puts metadata files in metadata/", {
   expect_equal(prov$files[["meta.json"]]$location, "metadata")
 })
 
-test_that("acq_download skips existing files by default", {
+test_that("acq_download refuses to re-download existing source", {
   skip_if_offline()
   store <- withr::local_tempdir()
   old_store <- getOption("acquire.store")
@@ -85,12 +85,9 @@ test_that("acq_download skips existing files by default", {
   )
 
   acq_download(src, cite = FALSE)
-  first_hash <- acq_read_provenance(src, store = store)$files[["test.json"]]$sha256
 
-  # Second download should skip
-  acq_download(src, cite = FALSE)
-  prov <- acq_read_provenance(src, store = store)
-  expect_true(prov$files[["test.json"]]$skipped)
+  # Second download should error and recommend acq_refresh()
+  expect_error(acq_download(src, cite = FALSE), "acq_refresh")
 })
 
 test_that("acq_download auto-generates citation by default", {

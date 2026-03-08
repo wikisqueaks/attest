@@ -12,13 +12,14 @@ acq_refresh(source, store = NULL, archive = TRUE)
 \item{store}{Path to the provenance store. Defaults to \code{\link[=acq_store]{acq_store()}}.}
 
 \item{archive}{Logical; if \code{TRUE} (default), archive current files before
-re-downloading.}
+updating.}
 }
 \value{
-The updated provenance record, invisibly.
+A data frame summarising the comparison (columns: \code{file}, \code{status},
+\code{old_hash}, \code{new_hash}, \code{old_size}, \code{new_size}), invisibly.
 }
 \description{
-Re-downloads all files for a previously acquired source. Optionally archives
-the current files before overwriting them.
+Re-downloads all files for a previously acquired source, compares them
+against the recorded hashes, and updates the local store only if changes are
+detected. Optionally archives the current files before overwriting.
 }
-\keyword{internal}

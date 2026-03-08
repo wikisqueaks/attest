@@ -11,10 +11,12 @@
 #' with error information for the failed files. A warning summarizes any
 #' failures.
 #'
+#' `acq_download()` is intended for first-time acquisition. If a provenance
+#' record already exists for the source, it will error and recommend
+#' [acq_refresh()] instead.
+#'
 #' @param source An [acq_source()] object.
 #' @param store Path to the provenance store. Defaults to [acq_store()].
-#' @param overwrite Logical; if `TRUE`, re-download files that already exist
-#'   locally. Default is `FALSE`.
 #' @param cite Logical; if `TRUE` (default), generate a BibTeX citation and
 #'   append it to `data-sources.bib` in the store root.
 #' @return A list containing the full provenance record, invisibly.
@@ -27,8 +29,7 @@
 #' )
 #' acq_download(src)
 #' }
-acq_download <- function(source, store = NULL, overwrite = FALSE,
-                         cite = TRUE) {
+acq_download <- function(source, store = NULL, cite = TRUE) {
   if (!inherits(source, "acq_source")) {
     cli::cli_abort("{.arg source} must be an {.cls acq_source} object.")
   }
@@ -36,21 +37,23 @@ acq_download <- function(source, store = NULL, overwrite = FALSE,
   if (is.null(store)) store <- acq_store()
 
   source_dir <- file.path(store, source$dir_name)
-  metadata_dir <- file.path(source_dir, "metadata")
   provenance_dir <- file.path(source_dir, "_acquire")
+  existing_prov <- file.path(provenance_dir, "provenance.json")
+
+  if (file.exists(existing_prov)) {
+    cli::cli_abort(c(
+      "Source {.val {source$name}} has already been downloaded.",
+      "i" = "Use {.fun acq_refresh} to check for updates and re-download."
+    ))
+  }
+
+  metadata_dir <- file.path(source_dir, "metadata")
 
   dir.create(source_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(provenance_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # Preserve created timestamp from existing provenance record
-  existing_prov_path <- file.path(provenance_dir, "provenance.json")
-  created <- if (file.exists(existing_prov_path)) {
-    existing_prov <- jsonlite::read_json(existing_prov_path)
-    existing_prov$created %||% timestamp_now()
-  } else {
-    timestamp_now()
-  }
+  created <- timestamp_now()
 
   files_record <- list()
   failures <- character(0)
@@ -65,7 +68,7 @@ acq_download <- function(source, store = NULL, overwrite = FALSE,
       fname <- derive_filename(source$data_urls, i)
       dest <- file.path(source_dir, fname)
 
-      result <- download_file(url, dest, overwrite = overwrite)
+      result <- download_file(url, dest, overwrite = FALSE)
       result$location <- "root"
       files_record[[fname]] <- result
       if (!is.null(result$error)) failures <- c(failures, fname)
@@ -82,7 +85,7 @@ acq_download <- function(source, store = NULL, overwrite = FALSE,
       fname <- derive_filename(source$metadata_urls, i)
       dest <- file.path(metadata_dir, fname)
 
-      result <- download_file(url, dest, overwrite = overwrite)
+      result <- download_file(url, dest, overwrite = FALSE)
       result$location <- "metadata"
       files_record[[fname]] <- result
       if (!is.null(result$error)) failures <- c(failures, fname)

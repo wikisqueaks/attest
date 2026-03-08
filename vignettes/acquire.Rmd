@@ -88,9 +88,8 @@ prov <- acq_read_provenance(usgs_quakes)
 prov$files[["earthquakes.csv"]][c("url", "downloaded", "size", "sha256")]
 ```
 
-This record is written at download time and never modified unless you
-re-download the source. The SHA-256 hash proves the file hasn't changed since
-acquisition.
+This record is written at download time and updated when you refresh the
+source. The SHA-256 hash proves the file hasn't changed since acquisition.
 
 ## Verify integrity
 
@@ -112,6 +111,22 @@ acq_cite(usgs_quakes)
 
 The resulting `data-sources.bib` can be used directly with R Markdown, Quarto,
 or LaTeX.
+
+## Refreshing a source
+
+External data changes over time. `acq_refresh()` re-downloads each file,
+compares hashes to the provenance record, and updates the local store only if
+something has changed. Before updating, it archives the current files in a
+timestamped subdirectory:
+
+```{r refresh}
+acq_refresh(usgs_quakes)
+```
+
+If nothing has changed, the function reports that and returns early — no files
+are modified. Note that `acq_download()` is strictly for first-time
+acquisition; calling it again on an existing source will error and recommend
+`acq_refresh()`.
 
 ## Status overview
 

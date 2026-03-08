@@ -70,6 +70,21 @@ acq_compare(usgs_quakes)
 #> ! earthquakes.csv: remote has changed
 ```
 
+When changes are detected, use `acq_refresh()` to update. It archives the
+current files, downloads fresh copies, and reports what changed:
+
+``` r
+acq_refresh(usgs_quakes)
+#> ℹ Refreshing 1 file for "usgs-earthquakes-4-5-month"...
+#> → Fetching earthquakes.csv
+#> ✔ Archived "usgs-earthquakes-4-5-month"
+#> ! 1 file changed for "usgs-earthquakes-4-5-month":
+#> ℹ earthquakes.csv: 3a7f1c9b0e2d... → 8b4e2f1a7c3d... (245891 → 251003 bytes)
+```
+
+Note that `acq_download()` is for first-time acquisition only — calling it
+again on an existing source will error and recommend `acq_refresh()`.
+
 ## What gets recorded
 
 For each source, `acquire` writes a `_acquire/provenance.json` file containing:
@@ -91,7 +106,8 @@ sources.
 |---|---|
 | `acq_store()` | Get or set the active store path |
 | `acq_source()` | Define a data source (URLs, metadata) |
-| `acq_download()` | Download files, hash, write provenance and citation |
+| `acq_download()` | First-time download: hash, write provenance and citation |
+| `acq_refresh()` | Re-download, compare, archive if changed, update in place |
 | `acq_verify()` | Compare local file hashes to recorded hashes |
 | `acq_compare()` | Re-download and compare hashes to detect remote changes |
 | `acq_cite()` | Regenerate a BibTeX entry |

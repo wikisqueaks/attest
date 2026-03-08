@@ -15,8 +15,8 @@ acq_archive(source, store = NULL)
 The archive directory path, invisibly.
 }
 \description{
-Copies the current downloaded files and provenance record into a
-timestamped subdirectory under \verb{archive/}. Useful before refreshing a
-source.
+Copies the current downloaded files, metadata, and provenance record into a
+timestamped subdirectory under \verb{archive/}. Called by \code{\link[=acq_refresh]{acq_refresh()}} before
+updating files.
 }
 \keyword{internal}

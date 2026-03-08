@@ -1,8 +1,8 @@
 #' Archive a Source's Current Files
 #'
-#' Copies the current downloaded files and provenance record into a
-#' timestamped subdirectory under `archive/`. Useful before refreshing a
-#' source.
+#' Copies the current downloaded files, metadata, and provenance record into a
+#' timestamped subdirectory under `archive/`. Called by [acq_refresh()] before
+#' updating files.
 #'
 #' @param source A source name (character) or [acq_source()] object.
 #' @param store Path to the provenance store. Defaults to [acq_store()].
@@ -21,26 +21,33 @@ acq_archive <- function(source, store = NULL) {
   archive_dir <- file.path(source_dir, "archive", timestamp)
   dir.create(archive_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # Copy all files (excluding the archive directory itself)
-  files <- list.files(source_dir, full.names = TRUE)
-  files <- files[basename(files) != "archive"]
-  file.copy(files, archive_dir)
+  # Copy all files and subdirectories (excluding the archive directory itself)
+  entries <- list.files(source_dir, full.names = TRUE)
+  entries <- entries[basename(entries) != "archive"]
+
+  results <- file.copy(entries, archive_dir, recursive = TRUE)
+  if (any(!results)) {
+    cli::cli_abort("Failed to archive some files in {.val {name}}.")
+  }
 
   cli::cli_alert_success("Archived {.val {name}} to {.path {archive_dir}}")
   invisible(archive_dir)
 }
 
+
 #' Refresh a Source
 #'
-#' Re-downloads all files for a previously acquired source. Optionally archives
-#' the current files before overwriting them.
+#' Re-downloads all files for a previously acquired source, compares them
+#' against the recorded hashes, and updates the local store only if changes are
+#' detected. Optionally archives the current files before overwriting.
 #'
 #' @param source A source name (character) or [acq_source()] object.
 #' @param store Path to the provenance store. Defaults to [acq_store()].
 #' @param archive Logical; if `TRUE` (default), archive current files before
-#'   re-downloading.
-#' @return The updated provenance record, invisibly.
-#' @keywords internal
+#'   updating.
+#' @return A data frame summarising the comparison (columns: `file`, `status`,
+#'   `old_hash`, `new_hash`, `old_size`, `new_size`), invisibly.
+#' @export
 acq_refresh <- function(source, store = NULL, archive = TRUE) {
   name <- resolve_source_name(source)
   if (is.null(store)) store <- acq_store()
@@ -52,31 +59,148 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
 
   prov <- jsonlite::read_json(prov_path)
 
+  if (length(prov$files) == 0) {
+    cli::cli_alert_info("No files recorded for {.val {name}}.")
+    return(invisible(data.frame(
+      file = character(0), status = character(0),
+      old_hash = character(0), new_hash = character(0),
+      old_size = numeric(0), new_size = numeric(0),
+      stringsAsFactors = FALSE
+    )))
+  }
+
+  cli::cli_alert_info(
+    "Refreshing {length(prov$files)} file{?s} for {.val {name}}..."
+  )
+
+  # Download each file to a temp directory and compare hashes
+  tmp_dir <- tempfile("acq_refresh_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  comparison <- lapply(names(prov$files), function(fname) {
+    file_info <- prov$files[[fname]]
+    url <- file_info$url
+    recorded_hash <- file_info$sha256 %||% NA_character_
+    recorded_size <- as.numeric(file_info$size %||% NA_real_)
+
+    cli::cli_alert("Fetching {.file {fname}}")
+
+    tmp_file <- file.path(tmp_dir, fname)
+
+    new_hash <- tryCatch(
+      {
+        resp <- acq_request(url) |> httr2::req_perform()
+        writeBin(httr2::resp_body_raw(resp), tmp_file)
+        acq_hash(tmp_file)
+      },
+      error = function(e) {
+        cli::cli_alert_danger(
+          "Failed to fetch {.file {fname}}: {conditionMessage(e)}"
+        )
+        NA_character_
+      }
+    )
+
+    new_size <- if (file.exists(tmp_file)) file.size(tmp_file) else NA_real_
+
+    if (is.na(new_hash)) {
+      status <- "error"
+    } else if (identical(recorded_hash, new_hash)) {
+      status <- "unchanged"
+    } else {
+      status <- "changed"
+    }
+
+    list(
+      file = fname,
+      status = status,
+      old_hash = recorded_hash,
+      new_hash = new_hash,
+      old_size = recorded_size,
+      new_size = new_size,
+      location = file_info$location %||% "root",
+      url = url,
+      tmp_file = tmp_file
+    )
+  })
+
+  summary_df <- data.frame(
+    file = vapply(comparison, `[[`, character(1), "file"),
+    status = vapply(comparison, `[[`, character(1), "status"),
+    old_hash = vapply(comparison, `[[`, character(1), "old_hash"),
+    new_hash = vapply(comparison, `[[`, character(1), "new_hash"),
+    old_size = vapply(comparison, `[[`, numeric(1), "old_size"),
+    new_size = vapply(comparison, `[[`, numeric(1), "new_size"),
+    stringsAsFactors = FALSE
+  )
+
+  n_changed <- sum(summary_df$status == "changed")
+  n_error <- sum(summary_df$status == "error")
+
+  # If nothing changed, report and return early
+  if (n_changed == 0) {
+    cli::cli_alert_success("No changes detected for {.val {name}}.")
+    if (n_error > 0) {
+      cli::cli_alert_danger(
+        "{n_error} file{?s} could not be fetched for comparison."
+      )
+    }
+    return(invisible(summary_df))
+  }
+
+  # Changes detected — archive, then update
   if (archive) {
     acq_archive(name, store)
   }
 
-  # Reconstruct source object from provenance record
-  data_urls <- character(0)
-  metadata_urls <- character(0)
+  source_dir <- file.path(store, name)
+  for (entry in comparison) {
+    if (entry$status != "changed") next
+    if (!file.exists(entry$tmp_file)) next
 
-  for (fname in names(prov$files)) {
-    file_info <- prov$files[[fname]]
-    location <- file_info$location %||% "root"
-    if (location == "metadata") {
-      metadata_urls[fname] <- file_info$url
+    dest <- if (entry$location == "metadata") {
+      file.path(source_dir, "metadata", entry$file)
     } else {
-      data_urls[fname] <- file_info$url
+      file.path(source_dir, entry$file)
+    }
+
+    file.copy(entry$tmp_file, dest, overwrite = TRUE)
+
+    # Update provenance for this file
+    prov$files[[entry$file]]$sha256 <- entry$new_hash
+    prov$files[[entry$file]]$size <- entry$new_size
+    prov$files[[entry$file]]$downloaded <- timestamp_now()
+  }
+
+  prov$last_updated <- timestamp_now()
+
+  jsonlite::write_json(
+    prov,
+    prov_path,
+    pretty = TRUE, auto_unbox = TRUE
+  )
+
+  # Print summary
+  cli::cli_alert_warning("{n_changed} file{?s} changed for {.val {name}}:")
+  for (i in seq_len(nrow(summary_df))) {
+    row <- summary_df[i, ]
+    if (row$status == "changed") {
+      old_short <- substr(row$old_hash, 1, 12)
+      new_short <- substr(row$new_hash, 1, 12)
+      cli::cli_alert_info(
+        "{.file {row$file}}: {old_short}... \u2192 {new_short}... ({row$old_size} \u2192 {row$new_size} bytes)"
+      )
+    } else if (row$status == "error") {
+      cli::cli_alert_danger("{.file {row$file}}: could not fetch")
     }
   }
 
-  src <- acq_source(
-    name = prov$name,
-    landing_url = prov$landing_url,
-    data_urls = if (length(data_urls) > 0) data_urls else NULL,
-    metadata_urls = if (length(metadata_urls) > 0) metadata_urls else NULL,
-    metadata = prov$metadata
-  )
+  if (n_error > 0) {
+    cli::cli_alert_danger(
+      "{n_error} file{?s} could not be fetched for comparison."
+    )
+  }
 
-  acq_download(src, store = store, overwrite = TRUE)
+  invisible(summary_df)
 }

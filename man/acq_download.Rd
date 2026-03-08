@@ -4,15 +4,12 @@
 \alias{acq_download}
 \title{Download Source Files}
 \usage{
-acq_download(source, store = NULL, overwrite = FALSE, cite = TRUE)
+acq_download(source, store = NULL, cite = TRUE)
 }
 \arguments{
 \item{source}{An \code{\link[=acq_source]{acq_source()}} object.}
 
 \item{store}{Path to the provenance store. Defaults to \code{\link[=acq_store]{acq_store()}}.}
-
-\item{overwrite}{Logical; if \code{TRUE}, re-download files that already exist
-locally. Default is \code{FALSE}.}
 
 \item{cite}{Logical; if \code{TRUE} (default), generate a BibTeX citation and
 append it to \code{data-sources.bib} in the store root.}
@@ -32,6 +29,10 @@ provenance record goes in a \verb{_acquire/} subdirectory.
 If individual file downloads fail, the provenance record is still written
 with error information for the failed files. A warning summarizes any
 failures.
+
+\code{acq_download()} is intended for first-time acquisition. If a provenance
+record already exists for the source, it will error and recommend
+\code{\link[=acq_refresh]{acq_refresh()}} instead.
 }
 \examples{
 \dontrun{
