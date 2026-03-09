@@ -9,6 +9,8 @@ acq_source(
   landing_url = NULL,
   data_urls = NULL,
   metadata_urls = NULL,
+  data_paths = NULL,
+  metadata_paths = NULL,
   title = NULL,
   publisher = NULL,
   year = NULL,
@@ -31,6 +33,15 @@ directly in the source directory.}
 dictionaries, codebooks, PDFs, etc.). Named vector for custom filenames,
 same as \code{data_urls}. Metadata files are saved in a \verb{metadata/}
 subdirectory.}
+
+\item{data_paths}{Character vector of local file paths for data files. Use a
+named vector to control filenames in the store (e.g.,
+\code{c(survey.csv = "~/data/raw-survey.csv")}). Unnamed entries use the
+source basename. Used with \code{\link[=acq_register]{acq_register()}}.}
+
+\item{metadata_paths}{Character vector of local file paths for metadata
+files (data dictionaries, codebooks, etc.). Named vector for custom
+filenames, same as \code{data_paths}. Used with \code{\link[=acq_register]{acq_register()}}.}
 
 \item{title}{Title of the data source (for citation).}
 

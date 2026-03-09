@@ -14,6 +14,13 @@
 #'   dictionaries, codebooks, PDFs, etc.). Named vector for custom filenames,
 #'   same as `data_urls`. Metadata files are saved in a `metadata/`
 #'   subdirectory.
+#' @param data_paths Character vector of local file paths for data files. Use a
+#'   named vector to control filenames in the store (e.g.,
+#'   `c(survey.csv = "~/data/raw-survey.csv")`). Unnamed entries use the
+#'   source basename. Used with [acq_register()].
+#' @param metadata_paths Character vector of local file paths for metadata
+#'   files (data dictionaries, codebooks, etc.). Named vector for custom
+#'   filenames, same as `data_paths`. Used with [acq_register()].
 #' @param title Title of the data source (for citation).
 #' @param publisher Publisher or institution name (for citation).
 #' @param year Publication or release year (for citation).
@@ -37,6 +44,8 @@ acq_source <- function(name,
                        landing_url = NULL,
                        data_urls = NULL,
                        metadata_urls = NULL,
+                       data_paths = NULL,
+                       metadata_paths = NULL,
                        title = NULL,
                        publisher = NULL,
                        year = NULL,
@@ -47,6 +56,16 @@ acq_source <- function(name,
   }
 
   dir_name <- gsub("[^a-zA-Z0-9_-]", "-", name)
+
+  has_urls <- !is.null(data_urls) || !is.null(metadata_urls)
+  has_paths <- !is.null(data_paths) || !is.null(metadata_paths)
+  if (has_urls && has_paths) {
+    cli::cli_abort(c(
+      "A source cannot mix remote URLs and local paths.",
+      "i" = "Use {.arg data_urls}/{.arg metadata_urls} for remote sources ({.fun acq_download}).",
+      "i" = "Use {.arg data_paths}/{.arg metadata_paths} for local sources ({.fun acq_register})."
+    ))
+  }
 
   # Merge explicit metadata fields with the metadata list
   meta <- c(
@@ -64,6 +83,8 @@ acq_source <- function(name,
       landing_url = landing_url,
       data_urls = data_urls,
       metadata_urls = metadata_urls,
+      data_paths = data_paths,
+      metadata_paths = metadata_paths,
       metadata = meta
     ),
     class = "acq_source"
@@ -78,8 +99,15 @@ print.acq_source <- function(x, ...) {
     cli::cli_alert_info("Landing page: {.url {x$landing_url}}")
   }
 
-  n_data <- length(x$data_urls)
-  n_meta <- length(x$metadata_urls)
+  origin <- if (!is.null(x$data_paths) || !is.null(x$metadata_paths)) {
+    "local"
+  } else {
+    "remote"
+  }
+  cli::cli_alert_info("Origin: {.strong {origin}}")
+
+  n_data <- length(x$data_urls) + length(x$data_paths)
+  n_meta <- length(x$metadata_urls) + length(x$metadata_paths)
   cli::cli_alert_info("{n_data} data file{?s}, {n_meta} metadata file{?s}")
 
   if (length(x$metadata) > 0) {

@@ -85,31 +85,69 @@ acq_refresh(usgs_quakes)
 Note that `acq_download()` is for first-time acquisition only — calling it
 again on an existing source will error and recommend `acq_refresh()`.
 
+### Registering local files
+
+Not all data comes from a URL. For files received by email, transferred from a
+shared drive, or already sitting in your project folder, use `acq_register()`:
+
+``` r
+survey <- acq_source(
+  name = "annual-survey-2025",
+  data_paths = c("survey.csv" = "~/shared-drive/survey-2025.csv"),
+  metadata_paths = c("codebook.pdf" = "~/shared-drive/survey-codebook.pdf"),
+  title = "Annual Household Survey 2025",
+  publisher = "Ministry of Statistics",
+  year = "2025"
+)
+
+# Copy files into the store and record provenance
+acq_register(survey)
+#> ℹ Registering 1 data file...
+#> → Copying '~/shared-drive/survey-2025.csv'
+#> ℹ Registering 1 metadata file...
+#> → Copying '~/shared-drive/survey-codebook.pdf'
+#> ✔ Source "annual-survey-2025" registered
+```
+
+Use `move = TRUE` to avoid duplication — files are moved into the store and
+the originals are deleted (after verifying the copy):
+
+``` r
+acq_register(survey, move = TRUE)
+```
+
+If the files are already in the correct store location, `acq_register()` skips
+the copy and simply records provenance. All downstream functions
+(`acq_verify()`, `acq_compare()`, `acq_refresh()`) work with registered
+sources the same way they do with downloaded sources.
+
 ## What gets recorded
 
 For each source, `acquire` writes a `_acquire/provenance.json` file containing:
 
-- The **URL** each file was downloaded from
-- **SHA-256 hashes** computed at download time
-- **Timestamps** for when the download occurred
-- **HTTP metadata** (ETag, Last-Modified, Content-Type) when available
+- The **origin** of the source: `"remote"` (downloaded) or `"local"` (registered)
+- The **URL** or **original file path** each file came from
+- **SHA-256 hashes** computed at acquisition time
+- **Timestamps** for when the acquisition occurred
+- **HTTP metadata** (ETag, Last-Modified, Content-Type) when available (remote only)
 - All user-supplied **metadata** (title, publisher, description, license, etc.)
 
 Metadata files (data dictionaries, codebooks) can be specified via
-`metadata_urls` and are saved in a `metadata/` subdirectory. A single
-`data-sources.bib` at the store root accumulates BibTeX entries across all
-sources.
+`metadata_urls` (remote) or `metadata_paths` (local) and are saved in a
+`metadata/` subdirectory. A single `data-sources.bib` at the store root
+accumulates BibTeX entries across all sources.
 
 ## Key functions
 
 | Function | Purpose |
 |---|---|
 | `acq_store()` | Get or set the active store path |
-| `acq_source()` | Define a data source (URLs, metadata) |
-| `acq_download()` | First-time download: hash, write provenance and citation |
-| `acq_refresh()` | Re-download, compare, archive if changed, update in place |
+| `acq_source()` | Define a data source (URLs or local paths, metadata) |
+| `acq_download()` | First-time download (remote): hash, write provenance and citation |
+| `acq_register()` | First-time registration (local): copy/move files into store, record provenance |
+| `acq_refresh()` | Re-fetch, compare, archive if changed, update in place |
 | `acq_verify()` | Compare local file hashes to recorded hashes |
-| `acq_compare()` | Re-download and compare hashes to detect remote changes |
+| `acq_compare()` | Re-fetch and compare hashes to detect source changes |
 | `acq_cite()` | Regenerate a BibTeX entry |
 | `acq_status()` | Summary table of all sources in the store |
 | `acq_read_provenance()` | Read a source's provenance record |

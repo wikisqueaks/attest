@@ -19,7 +19,12 @@ A data frame summarising the comparison (columns: \code{file}, \code{status},
 \code{old_hash}, \code{new_hash}, \code{old_size}, \code{new_size}), invisibly.
 }
 \description{
-Re-downloads all files for a previously acquired source, compares them
+Re-fetches all files for a previously acquired source, compares them
 against the recorded hashes, and updates the local store only if changes are
 detected. Optionally archives the current files before overwriting.
+}
+\details{
+For remote sources (\code{origin = "remote"}), files are re-downloaded from their
+original URLs. For local sources (\code{origin = "local"}), files are re-read
+from their original \code{source_path}.
 }

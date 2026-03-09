@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare.R
 \name{acq_compare}
 \alias{acq_compare}
-\title{Compare Local Files to Remote Source}
+\title{Compare Local Files to Their Original Source}
 \usage{
 acq_compare(source, store = NULL)
 }
@@ -12,15 +12,21 @@ acq_compare(source, store = NULL)
 \item{store}{Path to the store. Defaults to \code{\link[=acq_store]{acq_store()}}.}
 }
 \value{
-A data frame with columns \code{file}, \code{status} (\code{"match"} or
-\code{"changed"}), \code{recorded_hash}, and \code{remote_hash}, invisibly.
+A data frame with columns \code{file}, \code{status} (\code{"match"},
+\code{"changed"}, or \code{"error"}), \code{recorded_hash}, and \code{source_hash},
+invisibly.
 }
 \description{
-Re-downloads each file from the original URL to a temporary location,
+Re-fetches each file from the original source to a temporary location,
 computes its SHA-256 hash, and compares it to the recorded hash in the
-provenance record. This gives a definitive answer about whether the remote
-source has changed since the original download. Temporary files are cleaned
+provenance record. This gives a definitive answer about whether the source
+has changed since the original acquisition. Temporary files are cleaned
 up automatically.
+}
+\details{
+For remote sources (\code{origin = "remote"}), files are re-downloaded from their
+original URLs. For local sources (\code{origin = "local"}), files are re-read
+from their original \code{source_path}.
 }
 \examples{
 \dontrun{

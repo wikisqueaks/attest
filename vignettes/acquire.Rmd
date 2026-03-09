@@ -16,11 +16,12 @@ knitr::opts_chunk$set(
 
 Researchers working with external data — from government portals, institutional
 repositories, or public APIs — need to document where that data came from. The
-`acquire` package downloads files from known URLs and produces a provenance
-record alongside the data: SHA-256 hashes, timestamps, HTTP metadata, and a
-BibTeX citation.
+`acquire` package downloads files from known URLs or registers local files, and
+produces a provenance record alongside the data: SHA-256 hashes, timestamps,
+HTTP metadata, and a BibTeX citation.
 
-This vignette walks through the workflow using the USGS earthquake feed.
+This vignette walks through both workflows: downloading remote data from the
+USGS earthquake feed, and registering local files that arrive outside of a URL.
 
 ## Setup
 
@@ -136,6 +137,99 @@ acquisition; calling it again on an existing source will error and recommend
 acq_status()
 ```
 
+## Registering local files
+
+Not all data arrives via URL. Files received by email, copied from a shared
+drive, or exported from a database can be registered with `acq_register()`.
+This gives them the same provenance tracking as downloaded files.
+
+First, let's create some example files to register:
+
+```{r local-setup}
+# Simulate local files (in practice these already exist somewhere)
+local_dir <- tempfile("local-data")
+dir.create(local_dir)
+writeLines("id,value\n1,10\n2,20\n3,30", file.path(local_dir, "survey.csv"))
+writeLines("id: participant ID\nvalue: response score", file.path(local_dir, "codebook.txt"))
+```
+
+Define a source using `data_paths` and `metadata_paths` instead of URLs:
+
+```{r local-source}
+survey <- acq_source(
+  name = "annual-survey",
+  data_paths = c("survey.csv" = file.path(local_dir, "survey.csv")),
+  metadata_paths = c("codebook.txt" = file.path(local_dir, "codebook.txt")),
+  title = "Annual Participant Survey",
+  publisher = "Research Lab",
+  year = format(Sys.Date(), "%Y")
+)
+
+survey
+```
+
+A source must use _either_ URLs or paths — mixing them is an error.
+
+### Register into the store
+
+`acq_register()` copies files into the canonical store structure, computes
+hashes, and writes a provenance record:
+
+```{r register}
+acq_register(survey)
+```
+
+The store structure mirrors what `acq_download()` creates:
+
+```{r local-files}
+list.files(file.path(store, "annual-survey"), recursive = TRUE, all.files = TRUE, no.. = TRUE)
+```
+
+### Move instead of copy
+
+If you don't need the originals, use `move = TRUE` to avoid duplication. The
+original is deleted only after the copy is verified:
+    
+```r
+acq_register(source, move = TRUE)
+```
+
+### Registering files already in place
+
+If you've already placed files in the correct store location, `acq_register()`
+detects this and skips the copy — it just hashes and records provenance.
+
+### Checking for upstream changes
+
+The same functions work for both remote and local sources:
+
+```{r local-verify}
+acq_verify(survey)
+```
+
+`acq_check()` compares file size and modification time against the original
+source path (the equivalent of an HTTP HEAD check for remote files):
+
+```{r local-check}
+acq_check(survey)
+```
+
+If the original file has changed, you can use `acq_compare()` for a definitive
+hash-based comparison, and `acq_refresh()` to update the store:
+
+```{r local-compare}
+acq_compare(survey)
+```
+
+### Status overview (revisited)
+
+`acq_status()` shows both remote and local sources, with an `origin` column:
+
+```{r status-both}
+acq_status()
+```
+
 ```{r cleanup, include = FALSE}
 unlink(store, recursive = TRUE)
+unlink(local_dir, recursive = TRUE)
 ```

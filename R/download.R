@@ -34,6 +34,13 @@ acq_download <- function(source, store = NULL, cite = TRUE) {
     cli::cli_abort("{.arg source} must be an {.cls acq_source} object.")
   }
 
+  if (!is.null(source$data_paths) || !is.null(source$metadata_paths)) {
+    cli::cli_abort(c(
+      "{.fun acq_download} is for remote sources with URLs.",
+      "i" = "This source has local paths. Use {.fun acq_register} instead."
+    ))
+  }
+
   if (is.null(store)) store <- acq_store()
 
   source_dir <- file.path(store, source$dir_name)
@@ -96,6 +103,7 @@ acq_download <- function(source, store = NULL, cite = TRUE) {
   provenance <- list(
     name = source$name,
     dir_name = source$dir_name,
+    origin = "remote",
     landing_url = source$landing_url,
     metadata = source$metadata,
     files = files_record,

@@ -53,3 +53,35 @@ test_that("print.acq_source runs without error", {
   expect_no_error(print(src))
   expect_invisible(print(src))
 })
+
+test_that("acq_source rejects mixing URLs and paths", {
+  expect_error(
+    acq_source(
+      name = "mixed",
+      data_urls = c("https://example.com/data.csv"),
+      data_paths = c("~/local/data.csv")
+    ),
+    "cannot mix"
+  )
+
+  expect_error(
+    acq_source(
+      name = "mixed",
+      data_urls = c("https://example.com/data.csv"),
+      metadata_paths = c("~/local/codebook.pdf")
+    ),
+    "cannot mix"
+  )
+})
+
+test_that("acq_source accepts local paths without URLs", {
+  src <- acq_source(
+    name = "local-only",
+    data_paths = c(data = "~/data/file.csv"),
+    title = "Local Source"
+  )
+
+  expect_s3_class(src, "acq_source")
+  expect_equal(src$data_paths, c(data = "~/data/file.csv"))
+  expect_null(src$data_urls)
+})

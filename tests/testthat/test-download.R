@@ -2,6 +2,15 @@ test_that("acq_download rejects non-acq_source input", {
   expect_error(acq_download("not a source"), "acq_source")
 })
 
+test_that("acq_download rejects sources with local paths", {
+  src <- acq_source(
+    name = "local-src",
+    data_paths = c("data.csv" = "~/data/file.csv"),
+    title = "Local Source"
+  )
+  expect_error(acq_download(src), "acq_register")
+})
+
 test_that("acq_download creates correct directory structure", {
   skip_if_offline()
   store <- withr::local_tempdir()

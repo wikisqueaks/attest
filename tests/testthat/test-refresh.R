@@ -158,6 +158,168 @@ test_that("acq_refresh accepts string source names", {
   expect_s3_class(result, "data.frame")
 })
 
+# -- acq_refresh() tests for local sources ------------------------------------
+
+test_that("acq_refresh detects no changes for local source", {
+  store <- withr::local_tempdir()
+  old_store <- getOption("acquire.store")
+  withr::defer(options(acquire.store = old_store))
+  acq_store(store)
+
+  # Create an external source file
+  ext_dir <- withr::local_tempdir()
+  data_file <- file.path(ext_dir, "data.csv")
+  writeLines("x,y\n1,2", data_file)
+
+  src <- acq_source(
+    name = "local-refresh-unchanged",
+    data_paths = c("data.csv" = data_file),
+    title = "local unchanged test"
+  )
+
+  acq_register(src, cite = FALSE)
+
+  # Source file unchanged — refresh should detect no changes
+  result <- acq_refresh(src, store = store, archive = FALSE)
+
+  expect_s3_class(result, "data.frame")
+  expect_true(all(result$status == "unchanged"))
+})
+
+test_that("acq_refresh detects changes in local source", {
+  store <- withr::local_tempdir()
+  old_store <- getOption("acquire.store")
+  withr::defer(options(acquire.store = old_store))
+  acq_store(store)
+
+  ext_dir <- withr::local_tempdir()
+  data_file <- file.path(ext_dir, "data.csv")
+  writeLines("x,y\n1,2", data_file)
+
+  src <- acq_source(
+    name = "local-refresh-changed",
+    data_paths = c("data.csv" = data_file),
+    title = "local changed test"
+  )
+
+  acq_register(src, cite = FALSE)
+
+  # Modify the original source file
+  writeLines("x,y\n1,2\n3,4", data_file)
+
+  result <- acq_refresh(src, store = store, archive = TRUE)
+
+  expect_s3_class(result, "data.frame")
+  expect_true("changed" %in% result$status)
+
+  # Archive should have been created
+  archive_root <- file.path(store, "local-refresh-changed", "archive")
+  expect_true(dir.exists(archive_root))
+
+  # Store file should now match the updated source
+  store_file <- file.path(store, "local-refresh-changed", "data.csv")
+  expect_equal(acq_hash(store_file), acq_hash(data_file))
+
+  # Provenance should be updated
+  prov <- acq_read_provenance(src, store = store)
+  expect_equal(prov$files[["data.csv"]]$sha256, acq_hash(data_file))
+})
+
+test_that("acq_refresh uses 'registered' timestamp for local sources", {
+  store <- withr::local_tempdir()
+  old_store <- getOption("acquire.store")
+  withr::defer(options(acquire.store = old_store))
+  acq_store(store)
+
+  ext_dir <- withr::local_tempdir()
+  data_file <- file.path(ext_dir, "data.csv")
+  writeLines("a\n1", data_file)
+
+  src <- acq_source(
+    name = "local-refresh-ts",
+    data_paths = c("data.csv" = data_file),
+    title = "local ts test"
+  )
+
+  acq_register(src, cite = FALSE)
+
+  # Modify source to trigger a change
+  writeLines("a\n1\n2", data_file)
+
+  acq_refresh(src, store = store, archive = FALSE)
+
+  prov <- acq_read_provenance(src, store = store)
+
+  # Should have 'registered' timestamp, not 'downloaded'
+  expect_false(is.null(prov$files[["data.csv"]]$registered))
+  expect_null(prov$files[["data.csv"]]$downloaded)
+})
+
+test_that("acq_refresh reports error when local source file is missing", {
+  store <- withr::local_tempdir()
+  old_store <- getOption("acquire.store")
+  withr::defer(options(acquire.store = old_store))
+  acq_store(store)
+
+  ext_dir <- withr::local_tempdir()
+  data_file <- file.path(ext_dir, "data.csv")
+  writeLines("a\n1", data_file)
+
+  src <- acq_source(
+    name = "local-refresh-missing",
+    data_paths = c("data.csv" = data_file),
+    title = "local missing test"
+  )
+
+  acq_register(src, cite = FALSE)
+
+  # Delete the original source file
+  file.remove(data_file)
+
+  result <- acq_refresh(src, store = store, archive = FALSE)
+
+  expect_true("error" %in% result$status)
+})
+
+test_that("acq_refresh handles local metadata files", {
+  store <- withr::local_tempdir()
+  old_store <- getOption("acquire.store")
+  withr::defer(options(acquire.store = old_store))
+  acq_store(store)
+
+  ext_dir <- withr::local_tempdir()
+  data_file <- file.path(ext_dir, "data.csv")
+  meta_file <- file.path(ext_dir, "codebook.txt")
+  writeLines("x\n1", data_file)
+  writeLines("x: numeric", meta_file)
+
+  src <- acq_source(
+    name = "local-refresh-meta",
+    data_paths = c("data.csv" = data_file),
+    metadata_paths = c("codebook.txt" = meta_file),
+    title = "local meta test"
+  )
+
+  acq_register(src, cite = FALSE)
+
+  # Modify only the metadata file
+  writeLines("x: numeric\ny: character", meta_file)
+
+  result <- acq_refresh(src, store = store, archive = FALSE)
+
+  data_row <- result[result$file == "data.csv", ]
+  meta_row <- result[result$file == "codebook.txt", ]
+
+  expect_equal(data_row$status, "unchanged")
+  expect_equal(meta_row$status, "changed")
+
+  # Store metadata file should be updated
+  store_meta <- file.path(store, "local-refresh-meta", "metadata", "codebook.txt")
+  expect_equal(acq_hash(store_meta), acq_hash(meta_file))
+})
+
+# -- acq_refresh() tests for remote sources (existing) -----------------------
+
 test_that("acq_refresh returns correct summary columns", {
   skip_if_offline()
   store <- withr::local_tempdir()

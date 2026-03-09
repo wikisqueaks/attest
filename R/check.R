@@ -1,8 +1,12 @@
-#' Check Remote Sources for Changes
+#' Check Sources for Changes (Lightweight)
 #'
-#' Sends HTTP HEAD requests to the original URLs and compares ETag,
-#' Last-Modified, and Content-Length headers against the recorded values.
-#' Does not re-download any files.
+#' For remote sources, sends HTTP HEAD requests to the original URLs and
+#' compares ETag, Last-Modified, and Content-Length headers against the
+#' recorded values. Does not re-download any files.
+#'
+#' For local sources, stats the original `source_path` and compares file size
+#' and modification time against the recorded values. Does not re-read or
+#' hash the files (use [acq_compare()] for a definitive hash-based check).
 #'
 #' If the server did not provide comparable headers on the original download
 #' or the current HEAD request, the file is reported as `"no_comparison"`
@@ -11,7 +15,7 @@
 #' @param source A source name (character) or [acq_source()] object.
 #' @param store Path to the provenance store. Defaults to [acq_store()].
 #' @return An `acq_check` object (list with `source` and `files`), invisibly.
-#' @keywords internal
+#' @export
 acq_check <- function(source, store = NULL) {
   name <- resolve_source_name(source)
   if (is.null(store)) store <- acq_store()
@@ -24,8 +28,57 @@ acq_check <- function(source, store = NULL) {
   prov <- jsonlite::read_json(prov_path)
   results <- list()
 
+  origin <- prov$origin %||% "remote"
+
   for (fname in names(prov$files)) {
     file_info <- prov$files[[fname]]
+
+    # Local files: stat the original source_path
+    if (origin == "local" || !is.null(file_info$source_path)) {
+      source_path <- file_info$source_path
+      cli::cli_alert("Checking {.file {fname}} at {.path {source_path}}")
+
+      if (is.null(source_path) || !file.exists(source_path)) {
+        results[[fname]] <- list(
+          status = "source_missing", source_path = source_path
+        )
+        cli::cli_alert_danger(
+          "{.file {fname}}: Source file no longer exists"
+        )
+        next
+      }
+
+      changes <- character(0)
+
+      current_size <- file.size(source_path)
+      recorded_size <- as.numeric(file_info$size %||% 0)
+      if (current_size != recorded_size) {
+        changes <- c(changes, "size changed")
+      }
+
+      current_mtime <- format(file.mtime(source_path), "%Y-%m-%dT%H:%M:%S%z")
+      recorded_mtime <- file_info$source_modified
+      if (!is.null(recorded_mtime) && current_mtime != recorded_mtime) {
+        changes <- c(changes, "modified time changed")
+      }
+
+      if (length(changes) > 0) {
+        results[[fname]] <- list(
+          status = "possibly_changed", source_path = source_path,
+          changes = changes
+        )
+        cli::cli_alert_warning(
+          "{.file {fname}}: {paste(changes, collapse = ', ')}"
+        )
+      } else {
+        results[[fname]] <- list(
+          status = "unchanged", source_path = source_path
+        )
+        cli::cli_alert_success("{.file {fname}}: No changes detected")
+      }
+      next
+    }
+
     url <- file_info$url
 
     cli::cli_alert("Checking {.url {url}}")

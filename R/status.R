@@ -46,6 +46,7 @@ acq_status <- function(store = NULL) {
 
     data.frame(
       name = prov$name %||% NA_character_,
+      origin = prov$origin %||% "remote",
       created = prov$created %||% NA_character_,
       last_updated = prov$last_updated %||% NA_character_,
       n_files = n_files,

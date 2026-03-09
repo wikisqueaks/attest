@@ -37,9 +37,13 @@ acq_archive <- function(source, store = NULL) {
 
 #' Refresh a Source
 #'
-#' Re-downloads all files for a previously acquired source, compares them
+#' Re-fetches all files for a previously acquired source, compares them
 #' against the recorded hashes, and updates the local store only if changes are
 #' detected. Optionally archives the current files before overwriting.
+#'
+#' For remote sources (`origin = "remote"`), files are re-downloaded from their
+#' original URLs. For local sources (`origin = "local"`), files are re-read
+#' from their original `source_path`.
 #'
 #' @param source A source name (character) or [acq_source()] object.
 #' @param store Path to the provenance store. Defaults to [acq_store()].
@@ -58,6 +62,7 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
   }
 
   prov <- jsonlite::read_json(prov_path)
+  origin <- prov$origin %||% "remote"
 
   if (length(prov$files) == 0) {
     cli::cli_alert_info("No files recorded for {.val {name}}.")
@@ -73,56 +78,17 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
     "Refreshing {length(prov$files)} file{?s} for {.val {name}}..."
   )
 
-  # Download each file to a temp directory and compare hashes
+  # Fetch each file to a temp directory and compare hashes
   tmp_dir <- tempfile("acq_refresh_")
   dir.create(tmp_dir, recursive = TRUE)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
+  fetch_fn <- if (origin == "local") refresh_fetch_local else refresh_fetch_remote
+
   comparison <- lapply(names(prov$files), function(fname) {
     file_info <- prov$files[[fname]]
-    url <- file_info$url
-    recorded_hash <- file_info$sha256 %||% NA_character_
-    recorded_size <- as.numeric(file_info$size %||% NA_real_)
-
-    cli::cli_alert("Fetching {.file {fname}}")
-
     tmp_file <- file.path(tmp_dir, fname)
-
-    new_hash <- tryCatch(
-      {
-        resp <- acq_request(url) |> httr2::req_perform()
-        writeBin(httr2::resp_body_raw(resp), tmp_file)
-        acq_hash(tmp_file)
-      },
-      error = function(e) {
-        cli::cli_alert_danger(
-          "Failed to fetch {.file {fname}}: {conditionMessage(e)}"
-        )
-        NA_character_
-      }
-    )
-
-    new_size <- if (file.exists(tmp_file)) file.size(tmp_file) else NA_real_
-
-    if (is.na(new_hash)) {
-      status <- "error"
-    } else if (identical(recorded_hash, new_hash)) {
-      status <- "unchanged"
-    } else {
-      status <- "changed"
-    }
-
-    list(
-      file = fname,
-      status = status,
-      old_hash = recorded_hash,
-      new_hash = new_hash,
-      old_size = recorded_size,
-      new_size = new_size,
-      location = file_info$location %||% "root",
-      url = url,
-      tmp_file = tmp_file
-    )
+    fetch_fn(fname, file_info, tmp_file)
   })
 
   summary_df <- data.frame(
@@ -154,6 +120,9 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
     acq_archive(name, store)
   }
 
+  # Use the appropriate timestamp field for the origin type
+  ts_field <- if (origin == "local") "registered" else "downloaded"
+
   source_dir <- file.path(store, name)
   for (entry in comparison) {
     if (entry$status != "changed") next
@@ -170,7 +139,7 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
     # Update provenance for this file
     prov$files[[entry$file]]$sha256 <- entry$new_hash
     prov$files[[entry$file]]$size <- entry$new_size
-    prov$files[[entry$file]]$downloaded <- timestamp_now()
+    prov$files[[entry$file]][[ts_field]] <- timestamp_now()
   }
 
   prov$last_updated <- timestamp_now()

@@ -2,7 +2,7 @@
 % Please edit documentation in R/check.R
 \name{acq_check}
 \alias{acq_check}
-\title{Check Remote Sources for Changes}
+\title{Check Sources for Changes (Lightweight)}
 \usage{
 acq_check(source, store = NULL)
 }
@@ -15,13 +15,16 @@ acq_check(source, store = NULL)
 An \code{acq_check} object (list with \code{source} and \code{files}), invisibly.
 }
 \description{
-Sends HTTP HEAD requests to the original URLs and compares ETag,
-Last-Modified, and Content-Length headers against the recorded values.
-Does not re-download any files.
+For remote sources, sends HTTP HEAD requests to the original URLs and
+compares ETag, Last-Modified, and Content-Length headers against the
+recorded values. Does not re-download any files.
 }
 \details{
+For local sources, stats the original \code{source_path} and compares file size
+and modification time against the recorded values. Does not re-read or
+hash the files (use \code{\link[=acq_compare]{acq_compare()}} for a definitive hash-based check).
+
 If the server did not provide comparable headers on the original download
 or the current HEAD request, the file is reported as \code{"no_comparison"}
 rather than \code{"unchanged"}.
 }
-\keyword{internal}

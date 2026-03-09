@@ -103,6 +103,229 @@ resolve_file_path <- function(store, name, fname, file_info) {
   }
 }
 
+#' Register a local file into the store
+#'
+#' The local-file counterpart to `download_file()`. Ensures the file exists at
+#' `dest` (copying if needed), records the original absolute path, and computes
+#' a hash. When `move = TRUE`, the original is deleted after a successful copy
+#' (only if source and destination differ).
+#' @noRd
+register_file <- function(path, dest, move = FALSE) {
+  abs_path <- normalizePath(path, mustWork = FALSE)
+  abs_dest <- normalizePath(dest, mustWork = FALSE)
+  same_file <- identical(abs_path, abs_dest)
+
+  if (!file.exists(abs_path)) {
+    cli::cli_alert_danger("File not found: {.path {abs_path}}")
+    return(list(
+      source_path = abs_path,
+      registered = NULL,
+      size = NULL,
+      sha256 = NULL,
+      skipped = FALSE,
+      error = paste0("File not found: ", abs_path)
+    ))
+  }
+
+  tryCatch(
+    {
+      if (same_file) {
+        cli::cli_alert("Registering {.file {basename(abs_path)}} (already in place)")
+      } else {
+        action <- if (move) "Moving" else "Copying"
+        cli::cli_alert("{action} {.path {abs_path}}")
+        file.copy(abs_path, dest, overwrite = FALSE)
+      }
+
+      list(
+        source_path = abs_path,
+        registered = timestamp_now(),
+        size = file.size(dest),
+        sha256 = acq_hash(dest),
+        source_modified = format(file.mtime(dest), "%Y-%m-%dT%H:%M:%S%z"),
+        skipped = FALSE,
+        same_file = same_file,
+        error = NULL
+      )
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to register {.path {abs_path}}: {conditionMessage(e)}"
+      )
+      list(
+        source_path = abs_path,
+        registered = NULL,
+        size = NULL,
+        sha256 = NULL,
+        skipped = FALSE,
+        same_file = same_file,
+        error = conditionMessage(e)
+      )
+    }
+  )
+}
+
+#' Fetch a fresh copy of a remote file to a temp path for comparison
+#'
+#' Used by `acq_refresh()` for remote sources. Downloads to `tmp_file` and
+#' returns a comparison record.
+#' @noRd
+refresh_fetch_remote <- function(fname, file_info, tmp_file) {
+  url <- file_info$url
+  recorded_hash <- file_info$sha256 %||% NA_character_
+  recorded_size <- as.numeric(file_info$size %||% NA_real_)
+
+  cli::cli_alert("Fetching {.file {fname}}")
+
+  new_hash <- tryCatch(
+    {
+      resp <- acq_request(url) |> httr2::req_perform()
+      writeBin(httr2::resp_body_raw(resp), tmp_file)
+      acq_hash(tmp_file)
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to fetch {.file {fname}}: {conditionMessage(e)}"
+      )
+      NA_character_
+    }
+  )
+
+  new_size <- if (file.exists(tmp_file)) file.size(tmp_file) else NA_real_
+
+  status <- if (is.na(new_hash)) {
+    "error"
+  } else if (identical(recorded_hash, new_hash)) {
+    "unchanged"
+  } else {
+    "changed"
+  }
+
+  list(
+    file = fname,
+    status = status,
+    old_hash = recorded_hash,
+    new_hash = new_hash,
+    old_size = recorded_size,
+    new_size = new_size,
+    location = file_info$location %||% "root",
+    tmp_file = tmp_file
+  )
+}
+
+#' Fetch a fresh copy of a local file to a temp path for comparison
+#'
+#' Used by `acq_refresh()` for local sources. Copies from the original
+#' `source_path` to `tmp_file` and returns a comparison record.
+#' @noRd
+refresh_fetch_local <- function(fname, file_info, tmp_file) {
+  source_path <- file_info$source_path
+  recorded_hash <- file_info$sha256 %||% NA_character_
+  recorded_size <- as.numeric(file_info$size %||% NA_real_)
+
+  cli::cli_alert("Checking {.file {fname}} from {.path {source_path}}")
+
+  new_hash <- tryCatch(
+    {
+      if (!file.exists(source_path)) {
+        cli::cli_alert_danger(
+          "Source file not found: {.path {source_path}}"
+        )
+        NA_character_
+      } else {
+        file.copy(source_path, tmp_file, overwrite = TRUE)
+        acq_hash(tmp_file)
+      }
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to read {.file {fname}}: {conditionMessage(e)}"
+      )
+      NA_character_
+    }
+  )
+
+  new_size <- if (file.exists(tmp_file)) file.size(tmp_file) else NA_real_
+
+  status <- if (is.na(new_hash)) {
+    "error"
+  } else if (identical(recorded_hash, new_hash)) {
+    "unchanged"
+  } else {
+    "changed"
+  }
+
+  list(
+    file = fname,
+    status = status,
+    old_hash = recorded_hash,
+    new_hash = new_hash,
+    old_size = recorded_size,
+    new_size = new_size,
+    location = file_info$location %||% "root",
+    tmp_file = tmp_file
+  )
+}
+
+#' Fetch a remote file to a temp path for comparison, returning just the hash
+#'
+#' Used by `acq_compare()` for remote sources.
+#' @noRd
+compare_fetch_remote <- function(fname, file_info, tmp) {
+  url <- file_info$url
+  cli::cli_alert("Fetching {.file {fname}}")
+  tryCatch(
+    {
+      resp <- acq_request(url) |> httr2::req_perform()
+      writeBin(httr2::resp_body_raw(resp), tmp)
+      acq_hash(tmp)
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to fetch {.file {fname}}: {conditionMessage(e)}"
+      )
+      NA_character_
+    }
+  )
+}
+
+#' Read a local source file to a temp path for comparison, returning just the hash
+#'
+#' Used by `acq_compare()` for local sources. Hashes the file at its original
+#' `source_path` directly (no copy needed for read-only comparison).
+#' @noRd
+compare_fetch_local <- function(fname, file_info, tmp) {
+  source_path <- file_info$source_path
+  cli::cli_alert("Checking {.file {fname}} from {.path {source_path}}")
+  tryCatch(
+    {
+      if (!file.exists(source_path)) {
+        cli::cli_alert_danger(
+          "Source file not found: {.path {source_path}}"
+        )
+        return(NA_character_)
+      }
+      acq_hash(source_path)
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to read {.file {fname}}: {conditionMessage(e)}"
+      )
+      NA_character_
+    }
+  )
+}
+
+#' Derive filenames from local paths, using names if provided
+#' @noRd
+derive_local_filename <- function(paths, index) {
+  nm <- names(paths)[index]
+  if (!is.null(nm) && nchar(nm) > 0) {
+    return(nm)
+  }
+  basename(paths[index])
+}
+
 #' Derive filenames from URLs, using names if provided
 #' @noRd
 derive_filename <- function(urls, index) {
