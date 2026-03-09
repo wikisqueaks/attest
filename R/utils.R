@@ -27,7 +27,8 @@ timestamp_now <- function() {
 att_request <- function(url) {
   httr2::request(url) |>
     httr2::req_user_agent("attest (R package; data provenance tracking)") |>
-    httr2::req_timeout(seconds = 300)
+    httr2::req_timeout(seconds = 300) |>
+    httr2::req_progress()
 }
 
 #' Download a single file and record metadata
