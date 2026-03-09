@@ -6,19 +6,19 @@
 #'
 #' For local sources, stats the original `source_path` and compares file size
 #' and modification time against the recorded values. Does not re-read or
-#' hash the files (use [acq_compare()] for a definitive hash-based check).
+#' hash the files (use [att_compare()] for a definitive hash-based check).
 #'
 #' If the server did not provide comparable headers on the original download
 #' or the current HEAD request, the file is reported as `"no_comparison"`
 #' rather than `"unchanged"`.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
-#' @return An `acq_check` object (list with `source` and `files`), invisibly.
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the provenance store. Defaults to [att_store()].
+#' @return An `att_check` object (list with `source` and `files`), invisibly.
 #' @export
-acq_check <- function(source, store = NULL) {
+att_check <- function(source, store = NULL) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   prov_path <- provenance_path(store, name)
   if (!file.exists(prov_path)) {
@@ -85,7 +85,7 @@ acq_check <- function(source, store = NULL) {
 
     resp <- tryCatch(
       {
-        acq_request(url) |>
+        att_request(url) |>
           httr2::req_method("HEAD") |>
           httr2::req_perform()
       },
@@ -151,6 +151,6 @@ acq_check <- function(source, store = NULL) {
 
   invisible(structure(
     list(source = name, files = results),
-    class = "acq_check"
+    class = "att_check"
   ))
 }

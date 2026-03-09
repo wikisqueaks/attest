@@ -3,15 +3,15 @@
 #' Prints a summary table of all tracked sources in the store by scanning
 #' for `_acquire/provenance.json` files.
 #'
-#' @param store Path to the store. Defaults to [acq_store()].
+#' @param store Path to the store. Defaults to [att_store()].
 #' @return A data frame of source information.
 #' @export
 #' @examples
 #' \dontrun{
-#' acq_status()
+#' att_status()
 #' }
-acq_status <- function(store = NULL) {
-  if (is.null(store)) store <- acq_store()
+att_status <- function(store = NULL) {
+  if (is.null(store)) store <- att_store()
 
   if (!dir.exists(store)) {
     cli::cli_alert_info("Store directory not found at {.path {store}}")
@@ -63,17 +63,17 @@ acq_status <- function(store = NULL) {
 #' Reads the `provenance.json` file for a given source and returns it as a
 #' list.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the store. Defaults to [acq_store()].
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the store. Defaults to [att_store()].
 #' @return A list containing the full provenance record.
 #' @export
 #' @examples
 #' \dontrun{
-#' acq_read_provenance("my-source")
+#' att_read_provenance("my-source")
 #' }
-acq_read_provenance <- function(source, store = NULL) {
+att_read_provenance <- function(source, store = NULL) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   prov_path <- provenance_path(store, name)
   if (!file.exists(prov_path)) {

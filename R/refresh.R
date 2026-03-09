@@ -1,16 +1,16 @@
 #' Archive a Source's Current Files
 #'
 #' Copies the current downloaded files, metadata, and provenance record into a
-#' timestamped subdirectory under `archive/`. Called by [acq_refresh()] before
+#' timestamped subdirectory under `archive/`. Called by [att_refresh()] before
 #' updating files.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the provenance store. Defaults to [att_store()].
 #' @return The archive directory path, invisibly.
 #' @keywords internal
-acq_archive <- function(source, store = NULL) {
+att_archive <- function(source, store = NULL) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   source_dir <- file.path(store, name)
   if (!dir.exists(source_dir)) {
@@ -45,16 +45,16 @@ acq_archive <- function(source, store = NULL) {
 #' original URLs. For local sources (`origin = "local"`), files are re-read
 #' from their original `source_path`.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param archive Logical; if `TRUE` (default), archive current files before
 #'   updating.
 #' @return A data frame summarising the comparison (columns: `file`, `status`,
 #'   `old_hash`, `new_hash`, `old_size`, `new_size`), invisibly.
 #' @export
-acq_refresh <- function(source, store = NULL, archive = TRUE) {
+att_refresh <- function(source, store = NULL, archive = TRUE) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   prov_path <- provenance_path(store, name)
   if (!file.exists(prov_path)) {
@@ -79,7 +79,7 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
   )
 
   # Fetch each file to a temp directory and compare hashes
-  tmp_dir <- tempfile("acq_refresh_")
+  tmp_dir <- tempfile("att_refresh_")
   dir.create(tmp_dir, recursive = TRUE)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
@@ -117,7 +117,7 @@ acq_refresh <- function(source, store = NULL, archive = TRUE) {
 
   # Changes detected — archive, then update
   if (archive) {
-    acq_archive(name, store)
+    att_archive(name, store)
   }
 
   # Use the appropriate timestamp field for the origin type

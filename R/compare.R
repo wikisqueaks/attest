@@ -10,19 +10,19 @@
 #' original URLs. For local sources (`origin = "local"`), files are re-read
 #' from their original `source_path`.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the store. Defaults to [acq_store()].
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the store. Defaults to [att_store()].
 #' @return A data frame with columns `file`, `status` (`"match"`,
 #'   `"changed"`, or `"error"`), `recorded_hash`, and `source_hash`,
 #'   invisibly.
 #' @export
 #' @examples
 #' \dontrun{
-#' acq_compare("my-source")
+#' att_compare("my-source")
 #' }
-acq_compare <- function(source, store = NULL) {
+att_compare <- function(source, store = NULL) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   prov_path <- provenance_path(store, name)
   if (!file.exists(prov_path)) {

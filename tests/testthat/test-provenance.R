@@ -1,6 +1,6 @@
-test_that("acq_read_provenance returns provenance record", {
+test_that("att_read_provenance returns provenance record", {
   fix <- create_test_store()
-  prov <- acq_read_provenance(fix$source, store = fix$store)
+  prov <- att_read_provenance(fix$source, store = fix$store)
 
   expect_type(prov, "list")
   expect_equal(prov$name, "test-source")
@@ -11,20 +11,20 @@ test_that("acq_read_provenance returns provenance record", {
   expect_equal(prov$files[["codebook.txt"]]$location, "metadata")
 })
 
-test_that("acq_read_provenance accepts string name", {
+test_that("att_read_provenance accepts string name", {
   fix <- create_test_store()
-  prov <- acq_read_provenance("test-source", store = fix$store)
+  prov <- att_read_provenance("test-source", store = fix$store)
   expect_equal(prov$name, "test-source")
 })
 
-test_that("acq_read_provenance errors for unknown source", {
+test_that("att_read_provenance errors for unknown source", {
   store <- withr::local_tempdir()
-  expect_error(acq_read_provenance("nonexistent", store = store))
+  expect_error(att_read_provenance("nonexistent", store = store))
 })
 
-test_that("acq_status finds sources by scanning _acquire dirs", {
+test_that("att_status finds sources by scanning _acquire dirs", {
   fix <- create_test_store()
-  result <- acq_status(store = fix$store)
+  result <- att_status(store = fix$store)
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 1)
@@ -36,25 +36,25 @@ test_that("acq_status finds sources by scanning _acquire dirs", {
   expect_equal(result$origin, "remote")
 })
 
-test_that("acq_status shows origin for local sources", {
+test_that("att_status shows origin for local sources", {
   store <- withr::local_tempdir()
-  old_store <- getOption("acquire.store")
-  withr::defer(options(acquire.store = old_store))
-  acq_store(store)
+  old_store <- getOption("attest.store")
+  withr::defer(options(attest.store = old_store))
+  att_store(store)
 
   ext_dir <- withr::local_tempdir()
   data_file <- file.path(ext_dir, "data.csv")
   writeLines("a\n1", data_file)
 
-  src <- acq_source(
+  src <- att_source(
     name = "local-status",
     data_paths = c("data.csv" = data_file),
     title = "Local Status Test"
   )
 
-  acq_register(src, cite = FALSE)
+  att_register(src, cite = FALSE)
 
-  result <- acq_status(store = store)
+  result <- att_status(store = store)
 
   expect_equal(nrow(result), 1)
   expect_equal(result$origin, "local")

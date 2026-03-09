@@ -1,10 +1,10 @@
-# acquire <img src="man/figures/logo.png" align="right" height="120" alt="" />
+# attest <img src="man/figures/logo.png" align="right" height="120" alt="" />
 
 Document the provenance of external data.
 
 Researchers working with data from government portals, institutional
 repositories, and other external sources need to record where their data came
-from. `acquire` downloads files from known URLs, computes cryptographic hashes,
+from. `attest` downloads files from known URLs, computes cryptographic hashes,
 and generates BibTeX citations — producing a self-contained provenance record
 alongside the data itself.
 
@@ -12,7 +12,7 @@ alongside the data itself.
 
 ``` r
 # install.packages("pak")
-pak::pak("user/acquire")
+pak::pak("user/attest")
 ```
 
 ## Example
@@ -20,10 +20,10 @@ pak::pak("user/acquire")
 Document and download the USGS M4.5+ earthquake feed:
 
 ``` r
-library(acquire)
+library(attest)
 
 # Define a data source: where it lives, what it is
-usgs_quakes <- acq_source(
+usgs_quakes <- att_source(
   name = "usgs-earthquakes-4.5-month",
   landing_url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/csv.php",
   data_urls = c(
@@ -35,7 +35,7 @@ usgs_quakes <- acq_source(
 )
 
 # Download files, compute hashes, write provenance, and generate citation
-acq_download(usgs_quakes)
+att_download(usgs_quakes)
 #> ℹ Downloading 1 data file...
 #> → Downloading <https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.csv>
 #> ✔ BibTeX entry written to data/raw/data-sources.bib
@@ -56,7 +56,7 @@ data/raw/
 You can verify that local files haven't been modified:
 
 ``` r
-acq_verify(usgs_quakes)
+att_verify(usgs_quakes)
 #> ✔ earthquakes.csv: OK
 #> ✔ All files verified
 ```
@@ -64,17 +64,17 @@ acq_verify(usgs_quakes)
 Or check whether the remote source has changed since download:
 
 ``` r
-acq_compare(usgs_quakes)
+att_compare(usgs_quakes)
 #> ℹ Comparing 1 file for "usgs-earthquakes-4-5-month"...
 #> → Fetching earthquakes.csv
 #> ! earthquakes.csv: remote has changed
 ```
 
-When changes are detected, use `acq_refresh()` to update. It archives the
+When changes are detected, use `att_refresh()` to update. It archives the
 current files, downloads fresh copies, and reports what changed:
 
 ``` r
-acq_refresh(usgs_quakes)
+att_refresh(usgs_quakes)
 #> ℹ Refreshing 1 file for "usgs-earthquakes-4-5-month"...
 #> → Fetching earthquakes.csv
 #> ✔ Archived "usgs-earthquakes-4-5-month"
@@ -82,16 +82,16 @@ acq_refresh(usgs_quakes)
 #> ℹ earthquakes.csv: 3a7f1c9b0e2d... → 8b4e2f1a7c3d... (245891 → 251003 bytes)
 ```
 
-Note that `acq_download()` is for first-time acquisition only — calling it
-again on an existing source will error and recommend `acq_refresh()`.
+Note that `att_download()` is for first-time acquisition only — calling it
+again on an existing source will error and recommend `att_refresh()`.
 
 ### Registering local files
 
 Not all data comes from a URL. For files received by email, transferred from a
-shared drive, or already sitting in your project folder, use `acq_register()`:
+shared drive, or already sitting in your project folder, use `att_register()`:
 
 ``` r
-survey <- acq_source(
+survey <- att_source(
   name = "annual-survey-2025",
   data_paths = c("survey.csv" = "~/shared-drive/survey-2025.csv"),
   metadata_paths = c("codebook.pdf" = "~/shared-drive/survey-codebook.pdf"),
@@ -101,7 +101,7 @@ survey <- acq_source(
 )
 
 # Copy files into the store and record provenance
-acq_register(survey)
+att_register(survey)
 #> ℹ Registering 1 data file...
 #> → Copying '~/shared-drive/survey-2025.csv'
 #> ℹ Registering 1 metadata file...
@@ -113,17 +113,17 @@ Use `move = TRUE` to avoid duplication — files are moved into the store and
 the originals are deleted (after verifying the copy):
 
 ``` r
-acq_register(survey, move = TRUE)
+att_register(survey, move = TRUE)
 ```
 
-If the files are already in the correct store location, `acq_register()` skips
+If the files are already in the correct store location, `att_register()` skips
 the copy and simply records provenance. All downstream functions
-(`acq_verify()`, `acq_compare()`, `acq_refresh()`) work with registered
+(`att_verify()`, `att_compare()`, `att_refresh()`) work with registered
 sources the same way they do with downloaded sources.
 
 ## What gets recorded
 
-For each source, `acquire` writes a `_acquire/provenance.json` file containing:
+For each source, `attest` writes a `_acquire/provenance.json` file containing:
 
 - The **origin** of the source: `"remote"` (downloaded) or `"local"` (registered)
 - The **URL** or **original file path** each file came from
@@ -141,17 +141,17 @@ accumulates BibTeX entries across all sources.
 
 | Function | Purpose |
 |---|---|
-| `acq_store()` | Get or set the active store path |
-| `acq_source()` | Define a data source (URLs or local paths, metadata) |
-| `acq_download()` | First-time download (remote): hash, write provenance and citation |
-| `acq_register()` | First-time registration (local): copy/move files into store, record provenance |
-| `acq_refresh()` | Re-fetch, compare, archive if changed, update in place |
-| `acq_verify()` | Compare local file hashes to recorded hashes |
-| `acq_compare()` | Re-fetch and compare hashes to detect source changes |
-| `acq_cite()` | Regenerate a BibTeX entry |
-| `acq_status()` | Summary table of all sources in the store |
-| `acq_read_provenance()` | Read a source's provenance record |
-| `acq_hash()` | SHA-256 hash of a file |
+| `att_store()` | Get or set the active store path |
+| `att_source()` | Define a data source (URLs or local paths, metadata) |
+| `att_download()` | First-time download (remote): hash, write provenance and citation |
+| `att_register()` | First-time registration (local): copy/move files into store, record provenance |
+| `att_refresh()` | Re-fetch, compare, archive if changed, update in place |
+| `att_verify()` | Compare local file hashes to recorded hashes |
+| `att_compare()` | Re-fetch and compare hashes to detect source changes |
+| `att_cite()` | Regenerate a BibTeX entry |
+| `att_status()` | Summary table of all sources in the store |
+| `att_read_provenance()` | Read a source's provenance record |
+| `att_hash()` | SHA-256 hash of a file |
 
 ## License
 

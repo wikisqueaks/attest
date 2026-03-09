@@ -7,9 +7,9 @@
 #' store root directory. If an entry with the same key already exists, it is
 #' replaced.
 #'
-#' @param source An [acq_source()] object or a source name (character). When a
+#' @param source An [att_source()] object or a source name (character). When a
 #'   name is given, metadata is read from the provenance record.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param key BibTeX citation key. Defaults to a sanitized version of the
 #'   source name.
 #' @param write Logical; if `TRUE` (default), write the entry to
@@ -18,12 +18,12 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' acq_cite("my-source")
+#' att_cite("my-source")
 #' }
-acq_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
-  if (is.null(store)) store <- acq_store()
+att_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
+  if (is.null(store)) store <- att_store()
 
-  if (inherits(source, "acq_source")) {
+  if (inherits(source, "att_source")) {
     name <- source$dir_name
     meta <- source$metadata
     landing_url <- source$landing_url

@@ -4,18 +4,18 @@
 #' recorded hashes in `provenance.json`. Reports any mismatches or missing
 #' files.
 #'
-#' @param source A source name (character) or [acq_source()] object.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
-#' @return An `acq_verification` object (list with `source`, `all_ok`, and
+#' @param source A source name (character) or [att_source()] object.
+#' @param store Path to the provenance store. Defaults to [att_store()].
+#' @return An `att_verification` object (list with `source`, `all_ok`, and
 #'   `files`), invisibly.
 #' @export
 #' @examples
 #' \dontrun{
-#' acq_verify("my-source")
+#' att_verify("my-source")
 #' }
-acq_verify <- function(source, store = NULL) {
+att_verify <- function(source, store = NULL) {
   name <- resolve_source_name(source)
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   prov_path <- provenance_path(store, name)
   if (!file.exists(prov_path)) {
@@ -39,7 +39,7 @@ acq_verify <- function(source, store = NULL) {
       all_ok <- FALSE
       cli::cli_alert_danger("{.file {fname}}: MISSING")
     } else {
-      current_hash <- acq_hash(file_path)
+      current_hash <- att_hash(file_path)
       if (identical(current_hash, recorded_hash)) {
         results[[fname]] <- list(
           status = "ok", expected = recorded_hash, actual = current_hash
@@ -65,6 +65,6 @@ acq_verify <- function(source, store = NULL) {
 
   invisible(structure(
     list(source = name, all_ok = all_ok, files = results),
-    class = "acq_verification"
+    class = "att_verification"
   ))
 }

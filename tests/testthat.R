@@ -1,4 +1,4 @@
 library(testthat)
-library(acquire)
+library(attest)
 
-test_check("acquire")
+test_check("attest")

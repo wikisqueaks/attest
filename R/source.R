@@ -1,6 +1,6 @@
 #' Define a Data Source
 #'
-#' Creates an `acq_source` object describing a data source: its landing page,
+#' Creates an `att_source` object describing a data source: its landing page,
 #' data file URLs, metadata file URLs, and descriptive metadata.
 #'
 #' @param name A short, human-readable name for this source. Used as the
@@ -17,20 +17,20 @@
 #' @param data_paths Character vector of local file paths for data files. Use a
 #'   named vector to control filenames in the store (e.g.,
 #'   `c(survey.csv = "~/data/raw-survey.csv")`). Unnamed entries use the
-#'   source basename. Used with [acq_register()].
+#'   source basename. Used with [att_register()].
 #' @param metadata_paths Character vector of local file paths for metadata
 #'   files (data dictionaries, codebooks, etc.). Named vector for custom
-#'   filenames, same as `data_paths`. Used with [acq_register()].
+#'   filenames, same as `data_paths`. Used with [att_register()].
 #' @param title Title of the data source (for citation).
 #' @param publisher Publisher or institution name (for citation).
 #' @param year Publication or release year (for citation).
 #' @param description Brief description of the data source.
 #' @param metadata Named list of additional metadata fields. Merged with
 #'   `title`, `publisher`, `year`, and `description`.
-#' @return An object of class `acq_source`.
+#' @return An object of class `att_source`.
 #' @export
 #' @examples
-#' src <- acq_source(
+#' src <- att_source(
 #'   name = "example-data",
 #'   landing_url = "https://example.com/data",
 #'   data_urls = c(main = "https://example.com/data.csv"),
@@ -40,7 +40,7 @@
 #'   year = "2025"
 #' )
 #' src
-acq_source <- function(name,
+att_source <- function(name,
                        landing_url = NULL,
                        data_urls = NULL,
                        metadata_urls = NULL,
@@ -62,8 +62,8 @@ acq_source <- function(name,
   if (has_urls && has_paths) {
     cli::cli_abort(c(
       "A source cannot mix remote URLs and local paths.",
-      "i" = "Use {.arg data_urls}/{.arg metadata_urls} for remote sources ({.fun acq_download}).",
-      "i" = "Use {.arg data_paths}/{.arg metadata_paths} for local sources ({.fun acq_register})."
+      "i" = "Use {.arg data_urls}/{.arg metadata_urls} for remote sources ({.fun att_download}).",
+      "i" = "Use {.arg data_paths}/{.arg metadata_paths} for local sources ({.fun att_register})."
     ))
   }
 
@@ -87,13 +87,13 @@ acq_source <- function(name,
       metadata_paths = metadata_paths,
       metadata = meta
     ),
-    class = "acq_source"
+    class = "att_source"
   )
 }
 
 #' @export
-print.acq_source <- function(x, ...) {
-  cli::cli_h3("acquire source: {.val {x$name}}")
+print.att_source <- function(x, ...) {
+  cli::cli_h3("attest source: {.val {x$name}}")
 
   if (!is.null(x$landing_url)) {
     cli::cli_alert_info("Landing page: {.url {x$landing_url}}")

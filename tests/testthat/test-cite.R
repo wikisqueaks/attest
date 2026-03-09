@@ -18,9 +18,9 @@ test_that("build_bib_entry drops NULL fields", {
   expect_no_match(entry, "author")
 })
 
-test_that("acq_cite generates correct BibTeX entry", {
+test_that("att_cite generates correct BibTeX entry", {
   fix <- create_test_store()
-  result <- acq_cite(fix$source, store = fix$store, write = FALSE)
+  result <- att_cite(fix$source, store = fix$store, write = FALSE)
 
   expect_match(result, "@misc\\{test_source,")
   expect_match(result, "title = \\{Test Dataset\\}")
@@ -30,9 +30,9 @@ test_that("acq_cite generates correct BibTeX entry", {
   expect_match(result, "urldate")
 })
 
-test_that("acq_cite writes to data-sources.bib", {
+test_that("att_cite writes to data-sources.bib", {
   fix <- create_test_store()
-  acq_cite(fix$source, store = fix$store)
+  att_cite(fix$source, store = fix$store)
 
   bib_path <- file.path(fix$store, "data-sources.bib")
   expect_true(file.exists(bib_path))
@@ -42,10 +42,10 @@ test_that("acq_cite writes to data-sources.bib", {
   expect_true(any(grepl("Test Dataset", content)))
 })
 
-test_that("acq_cite replaces existing entry on re-cite", {
+test_that("att_cite replaces existing entry on re-cite", {
   fix <- create_test_store()
-  acq_cite(fix$source, store = fix$store)
-  acq_cite(fix$source, store = fix$store)
+  att_cite(fix$source, store = fix$store)
+  att_cite(fix$source, store = fix$store)
 
   bib_path <- file.path(fix$store, "data-sources.bib")
   content <- paste(readLines(bib_path), collapse = "\n")
@@ -55,17 +55,17 @@ test_that("acq_cite replaces existing entry on re-cite", {
   expect_equal(length(matches), 1)
 })
 
-test_that("acq_cite does not include SHA hashes", {
+test_that("att_cite does not include SHA hashes", {
   fix <- create_test_store()
-  result <- acq_cite(fix$source, store = fix$store, write = FALSE)
+  result <- att_cite(fix$source, store = fix$store, write = FALSE)
 
   expect_no_match(result, "SHA-256")
   expect_no_match(result, fix$data_hash)
 })
 
-test_that("acq_cite uses custom key when provided", {
+test_that("att_cite uses custom key when provided", {
   fix <- create_test_store()
-  result <- acq_cite(fix$source, store = fix$store, key = "my_custom_key",
+  result <- att_cite(fix$source, store = fix$store, key = "my_custom_key",
                      write = FALSE)
   expect_match(result, "@misc\\{my_custom_key,")
 })

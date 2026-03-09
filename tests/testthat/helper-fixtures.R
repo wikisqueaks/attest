@@ -4,20 +4,20 @@ create_test_store <- function() {
   store <- withr::local_tempdir(.local_envir = parent.frame())
   name <- "test-source"
   source_dir <- file.path(store, name)
-  acquire_dir <- file.path(source_dir, "_acquire")
+  attest_dir <- file.path(source_dir, "_acquire")
   metadata_dir <- file.path(source_dir, "metadata")
-  dir.create(acquire_dir, recursive = TRUE)
+  dir.create(attest_dir, recursive = TRUE)
   dir.create(metadata_dir, recursive = TRUE)
 
   # Create a data file
   data_file <- file.path(source_dir, "data.csv")
   writeLines("a,b,c\n1,2,3", data_file)
-  data_hash <- acq_hash(data_file)
+  data_hash <- att_hash(data_file)
 
   # Create a metadata file
   meta_file <- file.path(metadata_dir, "codebook.txt")
   writeLines("Column a: integer\nColumn b: integer", meta_file)
-  meta_hash <- acq_hash(meta_file)
+  meta_hash <- att_hash(meta_file)
 
   # Write provenance.json
   prov <- list(
@@ -57,12 +57,12 @@ create_test_store <- function() {
     ),
     created = "2025-01-01T12:00:00-0700",
     last_updated = "2025-01-01T12:00:00-0700",
-    acquire_version = "0.1.0"
+    attest_version = "0.1.0"
   )
 
   jsonlite::write_json(
     prov,
-    file.path(acquire_dir, "provenance.json"),
+    file.path(attest_dir, "provenance.json"),
     pretty = TRUE, auto_unbox = TRUE
   )
 
@@ -74,7 +74,7 @@ create_test_store <- function() {
     meta_file = meta_file,
     data_hash = data_hash,
     meta_hash = meta_hash,
-    source = acq_source(
+    source = att_source(
       name = name,
       landing_url = "https://example.com/data",
       data_urls = c("data.csv" = "https://example.com/data.csv"),

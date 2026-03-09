@@ -1,30 +1,30 @@
-test_that("acq_store get/set works", {
-  old <- getOption("acquire.store")
-  withr::defer(options(acquire.store = old))
+test_that("att_store get/set works", {
+  old <- getOption("attest.store")
+  withr::defer(options(attest.store = old))
 
-  acq_store("/tmp/test-store")
-  expect_equal(acq_store(), normalizePath("/tmp/test-store", mustWork = FALSE))
+  att_store("/tmp/test-store")
+  expect_equal(att_store(), normalizePath("/tmp/test-store", mustWork = FALSE))
 })
 
-test_that("acq_store defaults to data/raw", {
-  old <- getOption("acquire.store")
-  withr::defer(options(acquire.store = old))
-  options(acquire.store = NULL)
+test_that("att_store defaults to data/raw", {
+  old <- getOption("attest.store")
+  withr::defer(options(attest.store = old))
+  options(attest.store = NULL)
 
-  withr::with_envvar(c(ACQUIRE_STORE = ""), {
-    expect_equal(acq_store(), file.path(getwd(), "data", "raw"))
+  withr::with_envvar(c(ATTEST_STORE = ""), {
+    expect_equal(att_store(), file.path(getwd(), "data", "raw"))
   })
 })
 
-test_that("acq_status returns empty data frame for empty store", {
+test_that("att_status returns empty data frame for empty store", {
   store <- withr::local_tempdir()
-  result <- acq_status(store = store)
+  result <- att_status(store = store)
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 0)
 })
 
-test_that("acq_status returns empty data frame for nonexistent store", {
-  result <- acq_status(store = "/nonexistent/path")
+test_that("att_status returns empty data frame for nonexistent store", {
+  result <- att_status(store = "/nonexistent/path")
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 0)
 })

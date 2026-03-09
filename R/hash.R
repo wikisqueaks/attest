@@ -10,8 +10,8 @@
 #' @examples
 #' tf <- tempfile()
 #' writeLines("hello world", tf)
-#' acq_hash(tf)
-acq_hash <- function(path, algo = "sha256") {
+#' att_hash(tf)
+att_hash <- function(path, algo = "sha256") {
 
   if (!file.exists(path)) {
     cli::cli_abort("File not found: {.path {path}}")

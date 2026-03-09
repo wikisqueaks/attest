@@ -1,4 +1,4 @@
-Package: acquire
+Package: attest
 Type: Package
 Title: Download and Document Data Provenance
 Version: 0.1.0

@@ -11,37 +11,37 @@
 #' with error information for the failed files. A warning summarizes any
 #' failures.
 #'
-#' `acq_download()` is intended for first-time acquisition. If a provenance
+#' `att_download()` is intended for first-time acquisition. If a provenance
 #' record already exists for the source, it will error and recommend
-#' [acq_refresh()] instead.
+#' [att_refresh()] instead.
 #'
-#' @param source An [acq_source()] object.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @param source An [att_source()] object.
+#' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param cite Logical; if `TRUE` (default), generate a BibTeX citation and
 #'   append it to `data-sources.bib` in the store root.
 #' @return A list containing the full provenance record, invisibly.
 #' @export
 #' @examples
 #' \dontrun{
-#' src <- acq_source(
+#' src <- att_source(
 #'   name = "example",
 #'   data_urls = c(data = "https://example.com/data.csv")
 #' )
-#' acq_download(src)
+#' att_download(src)
 #' }
-acq_download <- function(source, store = NULL, cite = TRUE) {
-  if (!inherits(source, "acq_source")) {
-    cli::cli_abort("{.arg source} must be an {.cls acq_source} object.")
+att_download <- function(source, store = NULL, cite = TRUE) {
+  if (!inherits(source, "att_source")) {
+    cli::cli_abort("{.arg source} must be an {.cls att_source} object.")
   }
 
   if (!is.null(source$data_paths) || !is.null(source$metadata_paths)) {
     cli::cli_abort(c(
-      "{.fun acq_download} is for remote sources with URLs.",
-      "i" = "This source has local paths. Use {.fun acq_register} instead."
+      "{.fun att_download} is for remote sources with URLs.",
+      "i" = "This source has local paths. Use {.fun att_register} instead."
     ))
   }
 
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   source_dir <- file.path(store, source$dir_name)
   provenance_dir <- file.path(source_dir, "_acquire")
@@ -50,7 +50,7 @@ acq_download <- function(source, store = NULL, cite = TRUE) {
   if (file.exists(existing_prov)) {
     cli::cli_abort(c(
       "Source {.val {source$name}} has already been downloaded.",
-      "i" = "Use {.fun acq_refresh} to check for updates and re-download."
+      "i" = "Use {.fun att_refresh} to check for updates and re-download."
     ))
   }
 
@@ -109,7 +109,7 @@ acq_download <- function(source, store = NULL, cite = TRUE) {
     files = files_record,
     created = created,
     last_updated = timestamp_now(),
-    acquire_version = as.character(utils::packageVersion("acquire"))
+    attest_version = as.character(utils::packageVersion("attest"))
   )
 
   jsonlite::write_json(
@@ -119,7 +119,7 @@ acq_download <- function(source, store = NULL, cite = TRUE) {
   )
 
   if (cite && length(failures) == 0) {
-    acq_cite(source, store = store)
+    att_cite(source, store = store)
   }
 
   if (length(failures) > 0) {

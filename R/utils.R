@@ -3,17 +3,17 @@
 #' Resolve a source argument to a directory name
 #'
 #' Accepts either a string (treated as the directory name) or an
-#' `acq_source` object.
+#' `att_source` object.
 #' @noRd
 resolve_source_name <- function(source) {
   if (is.character(source) && length(source) == 1) {
     return(source)
   }
-  if (inherits(source, "acq_source")) {
+  if (inherits(source, "att_source")) {
     return(source$dir_name)
   }
 
-  cli::cli_abort("{.arg source} must be a source name or {.cls acq_source} object.")
+  cli::cli_abort("{.arg source} must be a source name or {.cls att_source} object.")
 }
 
 #' ISO 8601 timestamp
@@ -24,9 +24,9 @@ timestamp_now <- function() {
 
 #' Build a base httr2 request with user-agent and timeout
 #' @noRd
-acq_request <- function(url) {
+att_request <- function(url) {
   httr2::request(url) |>
-    httr2::req_user_agent("acquire (R package; data provenance tracking)") |>
+    httr2::req_user_agent("attest (R package; data provenance tracking)") |>
     httr2::req_timeout(seconds = 300)
 }
 
@@ -42,7 +42,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
       url = url,
       downloaded = NA_character_,
       size = file.size(dest),
-      sha256 = acq_hash(dest),
+      sha256 = att_hash(dest),
       skipped = TRUE,
       error = NULL
     ))
@@ -52,7 +52,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
 
   tryCatch(
     {
-      resp <- acq_request(url) |>
+      resp <- att_request(url) |>
         httr2::req_perform()
 
       writeBin(httr2::resp_body_raw(resp), dest)
@@ -61,7 +61,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
         url = url,
         downloaded = timestamp_now(),
         size = file.size(dest),
-        sha256 = acq_hash(dest),
+        sha256 = att_hash(dest),
         http_etag = httr2::resp_header(resp, "ETag"),
         http_last_modified = httr2::resp_header(resp, "Last-Modified"),
         http_content_type = httr2::resp_header(resp, "Content-Type"),
@@ -141,7 +141,7 @@ register_file <- function(path, dest, move = FALSE) {
         source_path = abs_path,
         registered = timestamp_now(),
         size = file.size(dest),
-        sha256 = acq_hash(dest),
+        sha256 = att_hash(dest),
         source_modified = format(file.mtime(dest), "%Y-%m-%dT%H:%M:%S%z"),
         skipped = FALSE,
         same_file = same_file,
@@ -167,7 +167,7 @@ register_file <- function(path, dest, move = FALSE) {
 
 #' Fetch a fresh copy of a remote file to a temp path for comparison
 #'
-#' Used by `acq_refresh()` for remote sources. Downloads to `tmp_file` and
+#' Used by `att_refresh()` for remote sources. Downloads to `tmp_file` and
 #' returns a comparison record.
 #' @noRd
 refresh_fetch_remote <- function(fname, file_info, tmp_file) {
@@ -179,9 +179,9 @@ refresh_fetch_remote <- function(fname, file_info, tmp_file) {
 
   new_hash <- tryCatch(
     {
-      resp <- acq_request(url) |> httr2::req_perform()
+      resp <- att_request(url) |> httr2::req_perform()
       writeBin(httr2::resp_body_raw(resp), tmp_file)
-      acq_hash(tmp_file)
+      att_hash(tmp_file)
     },
     error = function(e) {
       cli::cli_alert_danger(
@@ -215,7 +215,7 @@ refresh_fetch_remote <- function(fname, file_info, tmp_file) {
 
 #' Fetch a fresh copy of a local file to a temp path for comparison
 #'
-#' Used by `acq_refresh()` for local sources. Copies from the original
+#' Used by `att_refresh()` for local sources. Copies from the original
 #' `source_path` to `tmp_file` and returns a comparison record.
 #' @noRd
 refresh_fetch_local <- function(fname, file_info, tmp_file) {
@@ -234,7 +234,7 @@ refresh_fetch_local <- function(fname, file_info, tmp_file) {
         NA_character_
       } else {
         file.copy(source_path, tmp_file, overwrite = TRUE)
-        acq_hash(tmp_file)
+        att_hash(tmp_file)
       }
     },
     error = function(e) {
@@ -269,16 +269,16 @@ refresh_fetch_local <- function(fname, file_info, tmp_file) {
 
 #' Fetch a remote file to a temp path for comparison, returning just the hash
 #'
-#' Used by `acq_compare()` for remote sources.
+#' Used by `att_compare()` for remote sources.
 #' @noRd
 compare_fetch_remote <- function(fname, file_info, tmp) {
   url <- file_info$url
   cli::cli_alert("Fetching {.file {fname}}")
   tryCatch(
     {
-      resp <- acq_request(url) |> httr2::req_perform()
+      resp <- att_request(url) |> httr2::req_perform()
       writeBin(httr2::resp_body_raw(resp), tmp)
-      acq_hash(tmp)
+      att_hash(tmp)
     },
     error = function(e) {
       cli::cli_alert_danger(
@@ -291,7 +291,7 @@ compare_fetch_remote <- function(fname, file_info, tmp) {
 
 #' Read a local source file to a temp path for comparison, returning just the hash
 #'
-#' Used by `acq_compare()` for local sources. Hashes the file at its original
+#' Used by `att_compare()` for local sources. Hashes the file at its original
 #' `source_path` directly (no copy needed for read-only comparison).
 #' @noRd
 compare_fetch_local <- function(fname, file_info, tmp) {
@@ -305,7 +305,7 @@ compare_fetch_local <- function(fname, file_info, tmp) {
         )
         return(NA_character_)
       }
-      acq_hash(source_path)
+      att_hash(source_path)
     },
     error = function(e) {
       cli::cli_alert_danger(

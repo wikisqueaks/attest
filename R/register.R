@@ -2,16 +2,16 @@
 #'
 #' Copies local data and metadata files into the store, computes SHA-256
 #' hashes, and writes a `provenance.json` record. This is the local-file
-#' counterpart to [acq_download()].
+#' counterpart to [att_download()].
 #'
 #' The provenance record marks `origin` as `"local"` and records each file's
 #' original absolute path (`source_path`) instead of a URL. Downstream
-#' functions ([acq_verify()], [acq_refresh()]) work with registered sources;
-#' [acq_check()] will report `"not_remote"` for each file.
+#' functions ([att_verify()], [att_refresh()]) work with registered sources;
+#' [att_check()] will report `"not_remote"` for each file.
 #'
-#' @param source An [acq_source()] object with `data_paths` and/or
+#' @param source An [att_source()] object with `data_paths` and/or
 #'   `metadata_paths` populated.
-#' @param store Path to the provenance store. Defaults to [acq_store()].
+#' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param move Logical; if `TRUE`, delete the original file after a successful
 #'   copy into the store. Ignored when the file is already in the correct
 #'   location. Defaults to `FALSE` (copy, keeping the original).
@@ -21,24 +21,24 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' src <- acq_source(
+#' src <- att_source(
 #'   name = "local-survey",
 #'   data_paths = c(survey = "~/data/survey-2025.csv"),
 #'   metadata_paths = c(codebook = "~/data/survey-codebook.pdf"),
 #'   title = "Annual Survey 2025",
 #'   publisher = "Ministry of Statistics"
 #' )
-#' acq_register(src)
+#' att_register(src)
 #' }
-acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
-  if (!inherits(source, "acq_source")) {
-    cli::cli_abort("{.arg source} must be an {.cls acq_source} object.")
+att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
+  if (!inherits(source, "att_source")) {
+    cli::cli_abort("{.arg source} must be an {.cls att_source} object.")
   }
 
   if (!is.null(source$data_urls) || !is.null(source$metadata_urls)) {
     cli::cli_abort(c(
-      "{.fun acq_register} is for local sources with file paths.",
-      "i" = "This source has URLs. Use {.fun acq_download} instead."
+      "{.fun att_register} is for local sources with file paths.",
+      "i" = "This source has URLs. Use {.fun att_download} instead."
     ))
   }
 
@@ -48,7 +48,7 @@ acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
     )
   }
 
-  if (is.null(store)) store <- acq_store()
+  if (is.null(store)) store <- att_store()
 
   source_dir <- file.path(store, source$dir_name)
   provenance_dir <- file.path(source_dir, "_acquire")
@@ -57,7 +57,7 @@ acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
   if (file.exists(existing_prov)) {
     cli::cli_abort(c(
       "Source {.val {source$name}} has already been registered.",
-      "i" = "Use {.fun acq_refresh} to check for updates and re-register."
+      "i" = "Use {.fun att_refresh} to check for updates and re-register."
     ))
   }
 
@@ -115,7 +115,7 @@ acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
     files = files_record,
     created = created,
     last_updated = timestamp_now(),
-    acquire_version = as.character(utils::packageVersion("acquire"))
+    attest_version = as.character(utils::packageVersion("attest"))
   )
 
   jsonlite::write_json(
@@ -125,7 +125,7 @@ acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
   )
 
   if (cite && length(failures) == 0) {
-    acq_cite(source, store = store)
+    att_cite(source, store = store)
   }
 
   if (length(failures) > 0) {
@@ -146,7 +146,7 @@ acq_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
         if (rec$same_file) next
 
         dest <- resolve_file_path(store, source$dir_name, fname, rec)
-        if (identical(acq_hash(rec$source_path), acq_hash(dest))) {
+        if (identical(att_hash(rec$source_path), att_hash(dest))) {
           file.remove(rec$source_path)
           cli::cli_alert_info("Removed original: {.path {rec$source_path}}")
         } else {

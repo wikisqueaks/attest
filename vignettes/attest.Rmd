@@ -1,8 +1,8 @@
 ---
-title: "Getting started with acquire"
+title: "Getting started with attest"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting started with acquire}
+  %\VignetteIndexEntry{Getting started with attest}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 Researchers working with external data — from government portals, institutional
 repositories, or public APIs — need to document where that data came from. The
-`acquire` package downloads files from known URLs or registers local files, and
+`attest` package downloads files from known URLs or registers local files, and
 produces a provenance record alongside the data: SHA-256 hashes, timestamps,
 HTTP metadata, and a BibTeX citation.
 
@@ -26,15 +26,15 @@ USGS earthquake feed, and registering local files that arrive outside of a URL.
 ## Setup
 
 ```{r setup}
-library(acquire)
+library(attest)
 ```
 
-Set a store path — the directory where `acquire` keeps downloaded files and
+Set a store path — the directory where `attest` keeps downloaded files and
 their provenance records:
 
 ```{r init}
 store <- tempfile("quake-store")
-acq_store(store)
+att_store(store)
 ```
 
 In practice you'd use a permanent path like `"data/raw"` rather than a
@@ -42,11 +42,11 @@ temporary directory. The directory is created automatically on first download.
 
 ## Define a data source
 
-An `acq_source` object describes where data lives and what it is. The metadata
+An `att_source` object describes where data lives and what it is. The metadata
 you provide here flows into the provenance record and BibTeX citation:
 
 ```{r source}
-usgs_quakes <- acq_source(
+usgs_quakes <- att_source(
   name = "usgs-earthquakes-m4.5",
   landing_url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/csv.php",
   data_urls = c(
@@ -66,11 +66,11 @@ the URL basename.
 
 ## Download and document
 
-`acq_download()` fetches all data files, computes SHA-256 hashes, records HTTP
+`att_download()` fetches all data files, computes SHA-256 hashes, records HTTP
 metadata (ETag, Last-Modified, Content-Type), and writes a provenance record:
 
 ```{r download}
-acq_download(usgs_quakes)
+att_download(usgs_quakes)
 ```
 
 The source directory now contains the data alongside its provenance record:
@@ -85,7 +85,7 @@ The heart of the package is `provenance.json` — a structured record of
 exactly what was downloaded, from where, and when. You can read it as a list:
 
 ```{r provenance}
-prov <- acq_read_provenance(usgs_quakes)
+prov <- att_read_provenance(usgs_quakes)
 prov$files[["earthquakes.csv"]][c("url", "downloaded", "size", "sha256")]
 ```
 
@@ -94,20 +94,20 @@ source. The SHA-256 hash proves the file hasn't changed since acquisition.
 
 ## Verify integrity
 
-`acq_verify()` re-computes hashes and compares them to the recorded values.
+`att_verify()` re-computes hashes and compares them to the recorded values.
 This catches accidental edits, corruption, or file moves:
 
 ```{r verify}
-acq_verify(usgs_quakes)
+att_verify(usgs_quakes)
 ```
 
 ## Citation
 
-`acq_download()` automatically generates a BibTeX citation in
+`att_download()` automatically generates a BibTeX citation in
 `data-sources.bib`. You can also regenerate it manually:
 
 ```{r cite}
-acq_cite(usgs_quakes)
+att_cite(usgs_quakes)
 ```
 
 The resulting `data-sources.bib` can be used directly with R Markdown, Quarto,
@@ -115,32 +115,32 @@ or LaTeX.
 
 ## Refreshing a source
 
-External data changes over time. `acq_refresh()` re-downloads each file,
+External data changes over time. `att_refresh()` re-downloads each file,
 compares hashes to the provenance record, and updates the local store only if
 something has changed. Before updating, it archives the current files in a
 timestamped subdirectory:
 
 ```{r refresh}
-acq_refresh(usgs_quakes)
+att_refresh(usgs_quakes)
 ```
 
 If nothing has changed, the function reports that and returns early — no files
-are modified. Note that `acq_download()` is strictly for first-time
+are modified. Note that `att_download()` is strictly for first-time
 acquisition; calling it again on an existing source will error and recommend
-`acq_refresh()`.
+`att_refresh()`.
 
 ## Status overview
 
-`acq_status()` gives a summary of all sources in the store:
+`att_status()` gives a summary of all sources in the store:
 
 ```{r status}
-acq_status()
+att_status()
 ```
 
 ## Registering local files
 
 Not all data arrives via URL. Files received by email, copied from a shared
-drive, or exported from a database can be registered with `acq_register()`.
+drive, or exported from a database can be registered with `att_register()`.
 This gives them the same provenance tracking as downloaded files.
 
 First, let's create some example files to register:
@@ -156,7 +156,7 @@ writeLines("id: participant ID\nvalue: response score", file.path(local_dir, "co
 Define a source using `data_paths` and `metadata_paths` instead of URLs:
 
 ```{r local-source}
-survey <- acq_source(
+survey <- att_source(
   name = "annual-survey",
   data_paths = c("survey.csv" = file.path(local_dir, "survey.csv")),
   metadata_paths = c("codebook.txt" = file.path(local_dir, "codebook.txt")),
@@ -172,14 +172,14 @@ A source must use _either_ URLs or paths — mixing them is an error.
 
 ### Register into the store
 
-`acq_register()` copies files into the canonical store structure, computes
+`att_register()` copies files into the canonical store structure, computes
 hashes, and writes a provenance record:
 
 ```{r register}
-acq_register(survey)
+att_register(survey)
 ```
 
-The store structure mirrors what `acq_download()` creates:
+The store structure mirrors what `att_download()` creates:
 
 ```{r local-files}
 list.files(file.path(store, "annual-survey"), recursive = TRUE, all.files = TRUE, no.. = TRUE)
@@ -191,12 +191,12 @@ If you don't need the originals, use `move = TRUE` to avoid duplication. The
 original is deleted only after the copy is verified:
     
 ```r
-acq_register(source, move = TRUE)
+att_register(source, move = TRUE)
 ```
 
 ### Registering files already in place
 
-If you've already placed files in the correct store location, `acq_register()`
+If you've already placed files in the correct store location, `att_register()`
 detects this and skips the copy — it just hashes and records provenance.
 
 ### Checking for upstream changes
@@ -204,29 +204,29 @@ detects this and skips the copy — it just hashes and records provenance.
 The same functions work for both remote and local sources:
 
 ```{r local-verify}
-acq_verify(survey)
+att_verify(survey)
 ```
 
-`acq_check()` compares file size and modification time against the original
+`att_check()` compares file size and modification time against the original
 source path (the equivalent of an HTTP HEAD check for remote files):
 
 ```{r local-check}
-acq_check(survey)
+att_check(survey)
 ```
 
-If the original file has changed, you can use `acq_compare()` for a definitive
-hash-based comparison, and `acq_refresh()` to update the store:
+If the original file has changed, you can use `att_compare()` for a definitive
+hash-based comparison, and `att_refresh()` to update the store:
 
 ```{r local-compare}
-acq_compare(survey)
+att_compare(survey)
 ```
 
 ### Status overview (revisited)
 
-`acq_status()` shows both remote and local sources, with an `origin` column:
+`att_status()` shows both remote and local sources, with an `origin` column:
 
 ```{r status-both}
-acq_status()
+att_status()
 ```
 
 ```{r cleanup, include = FALSE}
