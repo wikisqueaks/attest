@@ -5,7 +5,7 @@
 #'
 #' Data files are saved directly in the source directory. Metadata files
 #' (codebooks, data dictionaries) go in a `metadata/` subdirectory. The
-#' provenance record goes in a `_acquire/` subdirectory.
+#' provenance record goes in a `_attest/` subdirectory.
 #'
 #' If individual file downloads fail, the provenance record is still written
 #' with error information for the failed files. A warning summarizes any
@@ -44,7 +44,7 @@ att_download <- function(source, store = NULL, cite = TRUE) {
   if (is.null(store)) store <- att_store()
 
   source_dir <- file.path(store, source$dir_name)
-  provenance_dir <- file.path(source_dir, "_acquire")
+  provenance_dir <- file.path(source_dir, "_attest")
   existing_prov <- file.path(provenance_dir, "provenance.json")
 
   if (file.exists(existing_prov)) {

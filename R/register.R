@@ -51,7 +51,7 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
   if (is.null(store)) store <- att_store()
 
   source_dir <- file.path(store, source$dir_name)
-  provenance_dir <- file.path(source_dir, "_acquire")
+  provenance_dir <- file.path(source_dir, "_attest")
   existing_prov <- file.path(provenance_dir, "provenance.json")
 
   if (file.exists(existing_prov)) {

@@ -9,9 +9,9 @@ test_that("att_archive preserves full directory structure", {
   expect_true(file.exists(file.path(archive_path, "data.csv")))
   expect_true(dir.exists(file.path(archive_path, "metadata")))
   expect_true(file.exists(file.path(archive_path, "metadata", "codebook.txt")))
-  expect_true(dir.exists(file.path(archive_path, "_acquire")))
+  expect_true(dir.exists(file.path(archive_path, "_attest")))
   expect_true(file.exists(
-    file.path(archive_path, "_acquire", "provenance.json")
+    file.path(archive_path, "_attest", "provenance.json")
   ))
 })
 
@@ -77,7 +77,7 @@ test_that("att_refresh detects changes and archives", {
 
   # Tamper with the recorded hash in provenance to simulate a remote change
   prov_path <- file.path(
-    store, "httpbin-refresh-changed", "_acquire", "provenance.json"
+    store, "httpbin-refresh-changed", "_attest", "provenance.json"
   )
   prov <- jsonlite::read_json(prov_path)
   prov$files[["test.json"]]$sha256 <- "0000000000000000000000000000000000000000000000000000000000000000"
@@ -96,7 +96,7 @@ test_that("att_refresh detects changes and archives", {
 
   # Archived provenance should contain the fake hash
   archived_prov <- jsonlite::read_json(
-    file.path(archives[1], "_acquire", "provenance.json")
+    file.path(archives[1], "_attest", "provenance.json")
   )
   expect_equal(
     archived_prov$files[["test.json"]]$sha256,
@@ -124,7 +124,7 @@ test_that("att_refresh preserves created timestamp", {
 
   # detectable change in both hash and timestamp
   prov_path <- file.path(
-    store, "httpbin-refresh-ts", "_acquire", "provenance.json"
+    store, "httpbin-refresh-ts", "_attest", "provenance.json"
   )
   prov_raw <- jsonlite::read_json(prov_path)
   prov_raw$files[["test.json"]]$sha256 <- "0000000000000000000000000000000000000000000000000000000000000000"

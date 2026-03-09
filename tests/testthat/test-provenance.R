@@ -22,7 +22,7 @@ test_that("att_read_provenance errors for unknown source", {
   expect_error(att_read_provenance("nonexistent", store = store))
 })
 
-test_that("att_status finds sources by scanning _acquire dirs", {
+test_that("att_status finds sources by scanning _attest dirs", {
   fix <- create_test_store()
   result <- att_status(store = fix$store)
 
@@ -62,7 +62,7 @@ test_that("att_status shows origin for local sources", {
 
 test_that("provenance_path resolves correctly", {
   expect_match(provenance_path("/store", "my-source"),
-               file.path("/store", "my-source", "_acquire", "provenance.json"),
+               file.path("/store", "my-source", "_attest", "provenance.json"),
                fixed = TRUE)
 })
 

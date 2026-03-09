@@ -89,7 +89,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
 #' Resolve the path to a source's provenance.json
 #' @noRd
 provenance_path <- function(store, name) {
-  file.path(store, name, "_acquire", "provenance.json")
+  file.path(store, name, "_attest", "provenance.json")
 }
 
 #' Resolve the local path of a file from its provenance record

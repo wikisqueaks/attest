@@ -49,7 +49,7 @@ data/raw/
 ├── data-sources.bib
 └── usgs-earthquakes-4-5-month/
     ├── earthquakes.csv
-    └── _acquire/
+    └── _attest/
         └── provenance.json
 ```
 
@@ -123,7 +123,7 @@ sources the same way they do with downloaded sources.
 
 ## What gets recorded
 
-For each source, `attest` writes a `_acquire/provenance.json` file containing:
+For each source, `attest` writes a `_attest/provenance.json` file containing:
 
 - The **origin** of the source: `"remote"` (downloaded) or `"local"` (registered)
 - The **URL** or **original file path** each file came from

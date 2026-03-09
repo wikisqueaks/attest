@@ -29,8 +29,8 @@ test_that("att_download creates correct directory structure", {
 
   # Data file at root
   expect_true(file.exists(file.path(store, "httpbin-test", "test.json")))
-  # Provenance in _acquire/
-  expect_true(file.exists(file.path(store, "httpbin-test", "_acquire", "provenance.json")))
+  # Provenance in _attest/
+  expect_true(file.exists(file.path(store, "httpbin-test", "_attest", "provenance.json")))
 })
 
 test_that("att_download writes valid provenance.json", {

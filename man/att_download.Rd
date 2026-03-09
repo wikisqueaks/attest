@@ -24,7 +24,7 @@ records HTTP metadata, and writes a \code{provenance.json} record.
 \details{
 Data files are saved directly in the source directory. Metadata files
 (codebooks, data dictionaries) go in a \verb{metadata/} subdirectory. The
-provenance record goes in a \verb{_acquire/} subdirectory.
+provenance record goes in a \verb{_attest/} subdirectory.
 
 If individual file downloads fail, the provenance record is still written
 with error information for the failed files. A warning summarizes any

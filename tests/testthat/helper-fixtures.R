@@ -4,7 +4,7 @@ create_test_store <- function() {
   store <- withr::local_tempdir(.local_envir = parent.frame())
   name <- "test-source"
   source_dir <- file.path(store, name)
-  attest_dir <- file.path(source_dir, "_acquire")
+  attest_dir <- file.path(source_dir, "_attest")
   metadata_dir <- file.path(source_dir, "metadata")
   dir.create(attest_dir, recursive = TRUE)
   dir.create(metadata_dir, recursive = TRUE)

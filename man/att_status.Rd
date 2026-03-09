@@ -14,7 +14,7 @@ A data frame of source information.
 }
 \description{
 Prints a summary table of all tracked sources in the store by scanning
-for \verb{_acquire/provenance.json} files.
+for \verb{_attest/provenance.json} files.
 }
 \examples{
 \dontrun{

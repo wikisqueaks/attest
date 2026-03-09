@@ -1,7 +1,7 @@
 #' View Source Status Summary
 #'
 #' Prints a summary table of all tracked sources in the store by scanning
-#' for `_acquire/provenance.json` files.
+#' for `_attest/provenance.json` files.
 #'
 #' @param store Path to the store. Defaults to [att_store()].
 #' @return A data frame of source information.
@@ -18,15 +18,15 @@ att_status <- function(store = NULL) {
     return(data.frame())
   }
 
-  # Scan for _acquire/provenance.json files
+  # Scan for _attest/provenance.json files
   prov_files <- list.files(
     store,
     pattern = "^provenance\\.json$",
     recursive = TRUE,
     full.names = TRUE
   )
-  # Only keep those inside _acquire/ subdirectories
-  prov_files <- prov_files[grepl("_acquire", prov_files, fixed = TRUE)]
+  # Only keep those inside _attest/ subdirectories
+  prov_files <- prov_files[grepl("_attest", prov_files, fixed = TRUE)]
 
   if (length(prov_files) == 0) {
     cli::cli_alert_info("No sources found in {.path {store}}")
