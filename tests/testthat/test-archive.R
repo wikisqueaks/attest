@@ -16,8 +16,12 @@ test_that("suggest_file_role classifies by extension", {
   expect_equal(suggest_file_role("data.csv"), "data")
   expect_equal(suggest_file_role("data.dbf"), "data")
   expect_equal(suggest_file_role("codebook.pdf"), "metadata")
+  # XML and HTML default to data (companion files, not documentation)
+  expect_equal(suggest_file_role("layer.shp.xml"), "data")
+  expect_equal(suggest_file_role("index.html"), "data")
+  # But XML/HTML with metadata name patterns → metadata
   expect_equal(suggest_file_role("metadata.xml"), "metadata")
-  expect_equal(suggest_file_role("index.html"), "metadata")
+  expect_equal(suggest_file_role("readme.html"), "metadata")
 })
 
 test_that("suggest_file_role classifies by name pattern", {

@@ -10,17 +10,18 @@ is_archive_url <- function(url) {
 #' Suggest a default role for an extracted file based on extension
 #' @noRd
 suggest_file_role <- function(filename) {
-  ext <- tolower(tools::file_ext(filename))
   base <- tolower(basename(filename))
 
-  metadata_exts <- c("pdf", "xml", "html", "htm")
-  metadata_patterns <- c("readme", "codebook", "dictionary", "metadata",
-                         "license")
+  # Only PDFs default to metadata — they're almost always documentation
+  if (tolower(tools::file_ext(filename)) == "pdf") return("metadata")
 
-  if (ext %in% metadata_exts) return("metadata")
+  # Name-based patterns for documentation files regardless of extension
+  metadata_patterns <- c("readme", "codebook", "dictionary", "metadata",
+                         "license", "changelog")
   for (pat in metadata_patterns) {
     if (grepl(pat, base, ignore.case = TRUE)) return("metadata")
   }
+
   "data"
 }
 
