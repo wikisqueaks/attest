@@ -12,7 +12,8 @@ att_check(source, store = NULL)
 \item{store}{Path to the provenance store. Defaults to \code{\link[=att_store]{att_store()}}.}
 }
 \value{
-An \code{att_check} object (list with \code{source} and \code{files}), invisibly.
+An \code{att_check} object (list with \code{source} and \code{files} and
+optionally \code{archives}), invisibly.
 }
 \description{
 For remote sources, sends HTTP HEAD requests to the original URLs and
@@ -23,6 +24,10 @@ recorded values. Does not re-download any files.
 For local sources, stats the original \code{source_path} and compares file size
 and modification time against the recorded values. Does not re-read or
 hash the files (use \code{\link[=att_compare]{att_compare()}} for a definitive hash-based check).
+
+For archive sources, sends HTTP HEAD to the original archive URL and
+compares headers. Extracted files are checked at the archive level, not
+individually.
 
 If the server did not provide comparable headers on the original download
 or the current HEAD request, the file is reported as \code{"no_comparison"}

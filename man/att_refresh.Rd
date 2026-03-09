@@ -27,4 +27,9 @@ detected. Optionally archives the current files before overwriting.
 For remote sources (\code{origin = "remote"}), files are re-downloaded from their
 original URLs. For local sources (\code{origin = "local"}), files are re-read
 from their original \code{source_path}.
+
+For archive sources, the archive is re-downloaded and its hash compared.
+If unchanged, all extracted files are reported as unchanged. If the archive
+hash differs, the archive is extracted and individual files are compared
+and updated.
 }

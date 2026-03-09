@@ -1,7 +1,7 @@
 Package: attest
 Type: Package
 Title: Download and Document Data Provenance
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     person("KW", "Taylor", email = "kw.taylor@pm.me",
            role = c("aut", "cre"),

@@ -45,6 +45,11 @@ att_archive <- function(source, store = NULL) {
 #' original URLs. For local sources (`origin = "local"`), files are re-read
 #' from their original `source_path`.
 #'
+#' For archive sources, the archive is re-downloaded and its hash compared.
+#' If unchanged, all extracted files are reported as unchanged. If the archive
+#' hash differs, the archive is extracted and individual files are compared
+#' and updated.
+#'
 #' @param source A source name (character) or [att_source()] object.
 #' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param archive Logical; if `TRUE` (default), archive current files before
@@ -63,6 +68,7 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
 
   prov <- jsonlite::read_json(prov_path)
   origin <- prov$origin %||% "remote"
+  has_archives <- !is.null(prov$archives) && length(prov$archives) > 0
 
   if (length(prov$files) == 0) {
     cli::cli_alert_info("No files recorded for {.val {name}}.")
@@ -83,13 +89,48 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
   dir.create(tmp_dir, recursive = TRUE)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
-  fetch_fn <- if (origin == "local") refresh_fetch_local else refresh_fetch_remote
+  comparison <- list()
+  archive_updates <- list()
 
-  comparison <- lapply(names(prov$files), function(fname) {
-    file_info <- prov$files[[fname]]
-    tmp_file <- file.path(tmp_dir, fname)
-    fetch_fn(fname, file_info, tmp_file)
-  })
+  # Process archive sources
+  if (has_archives) {
+    for (aname in names(prov$archives)) {
+      archive_info <- prov$archives[[aname]]
+
+      # Collect file records for this archive
+      archive_file_records <- list()
+      for (fname in names(prov$files)) {
+        if (identical(prov$files[[fname]]$extracted_from, aname)) {
+          archive_file_records[[fname]] <- prov$files[[fname]]
+        }
+      }
+
+      result <- refresh_fetch_archive(
+        aname, archive_info, archive_file_records, tmp_dir
+      )
+      comparison <- c(comparison, result$files)
+      archive_updates[[aname]] <- result
+    }
+  }
+
+  # Process regular (non-archive) files
+  regular_files <- names(prov$files)[
+    vapply(prov$files, function(fi) is.null(fi$extracted_from), logical(1))
+  ]
+
+  if (length(regular_files) > 0) {
+    fetch_fn <- if (origin == "local") {
+      refresh_fetch_local
+    } else {
+      refresh_fetch_remote
+    }
+
+    for (fname in regular_files) {
+      file_info <- prov$files[[fname]]
+      tmp_file <- file.path(tmp_dir, fname)
+      comparison <- c(comparison, list(fetch_fn(fname, file_info, tmp_file)))
+    }
+  }
 
   summary_df <- data.frame(
     file = vapply(comparison, `[[`, character(1), "file"),
@@ -126,7 +167,7 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
   source_dir <- file.path(store, name)
   for (entry in comparison) {
     if (entry$status != "changed") next
-    if (!file.exists(entry$tmp_file)) next
+    if (is.na(entry$tmp_file) || !file.exists(entry$tmp_file)) next
 
     dest <- if (entry$location == "metadata") {
       file.path(source_dir, "metadata", entry$file)
@@ -140,6 +181,23 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
     prov$files[[entry$file]]$sha256 <- entry$new_hash
     prov$files[[entry$file]]$size <- entry$new_size
     prov$files[[entry$file]][[ts_field]] <- timestamp_now()
+  }
+
+  # Update archive provenance
+  for (aname in names(archive_updates)) {
+    update <- archive_updates[[aname]]
+    if (isTRUE(update$archive_changed) && !is.na(update$archive_hash)) {
+      prov$archives[[aname]]$sha256 <- update$archive_hash
+      prov$archives[[aname]]$downloaded <- timestamp_now()
+      prov$archives[[aname]]$size <- file.size(file.path(tmp_dir, aname))
+      if (!is.null(update$http_headers)) {
+        prov$archives[[aname]]$http_etag <- update$http_headers$http_etag
+        prov$archives[[aname]]$http_last_modified <-
+          update$http_headers$http_last_modified
+        prov$archives[[aname]]$http_content_type <-
+          update$http_headers$http_content_type
+      }
+    }
   }
 
   prov$last_updated <- timestamp_now()

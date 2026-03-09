@@ -8,13 +8,18 @@
 #' and modification time against the recorded values. Does not re-read or
 #' hash the files (use [att_compare()] for a definitive hash-based check).
 #'
+#' For archive sources, sends HTTP HEAD to the original archive URL and
+#' compares headers. Extracted files are checked at the archive level, not
+#' individually.
+#'
 #' If the server did not provide comparable headers on the original download
 #' or the current HEAD request, the file is reported as `"no_comparison"`
 #' rather than `"unchanged"`.
 #'
 #' @param source A source name (character) or [att_source()] object.
 #' @param store Path to the provenance store. Defaults to [att_store()].
-#' @return An `att_check` object (list with `source` and `files`), invisibly.
+#' @return An `att_check` object (list with `source` and `files` and
+#'   optionally `archives`), invisibly.
 #' @export
 att_check <- function(source, store = NULL) {
   name <- resolve_source_name(source)
@@ -26,12 +31,26 @@ att_check <- function(source, store = NULL) {
   }
 
   prov <- jsonlite::read_json(prov_path)
-  results <- list()
-
+  has_archives <- !is.null(prov$archives) && length(prov$archives) > 0
   origin <- prov$origin %||% "remote"
 
+  results <- list()
+  archive_results <- list()
+
+  # Check archives
+  if (has_archives) {
+    for (aname in names(prov$archives)) {
+      archive_info <- prov$archives[[aname]]
+      archive_results[[aname]] <- check_archive_head(aname, archive_info)
+    }
+  }
+
+  # Check regular (non-archive) files
   for (fname in names(prov$files)) {
     file_info <- prov$files[[fname]]
+
+    # Skip archive-extracted files (checked at archive level)
+    if (!is.null(file_info$extracted_from)) next
 
     # Local files: stat the original source_path
     if (origin == "local" || !is.null(file_info$source_path)) {
@@ -150,7 +169,11 @@ att_check <- function(source, store = NULL) {
   }
 
   invisible(structure(
-    list(source = name, files = results),
+    list(
+      source = name,
+      files = results,
+      archives = if (length(archive_results) > 0) archive_results
+    ),
     class = "att_check"
   ))
 }

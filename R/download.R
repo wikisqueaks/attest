@@ -15,10 +15,27 @@
 #' record already exists for the source, it will error and recommend
 #' [att_refresh()] instead.
 #'
+#' @section Archive (zip) support:
+#'
+#' When a URL in `data_urls` points to a `.zip` file, `att_download()`
+#' automatically downloads and extracts the archive. In an interactive session,
+#' you will be prompted to classify each extracted file as data, metadata, or
+#' ignore. In non-interactive sessions, all files default to data unless
+#' `classify` is provided.
+#'
+#' The archive itself is not retained, but its SHA-256 hash is recorded in
+#' provenance for future comparison. Each extracted file records which archive
+#' it came from.
+#'
 #' @param source An [att_source()] object.
 #' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param cite Logical; if `TRUE` (default), generate a BibTeX citation and
 #'   append it to `data-sources.bib` in the store root.
+#' @param classify Optional named list for non-interactive archive file
+#'   classification. Elements `data`, `metadata`, and `ignore` each contain
+#'   character vectors of file extensions (e.g.,
+#'   `list(data = c(".shp", ".dbf"), metadata = ".xml")`). Only used for
+#'   archive URLs; ignored for regular downloads.
 #' @return A list containing the full provenance record, invisibly.
 #' @export
 #' @examples
@@ -28,8 +45,22 @@
 #'   data_urls = c(data = "https://example.com/data.csv")
 #' )
 #' att_download(src)
+#'
+#' # Archive (zip) download with interactive classification
+#' shp <- att_source(
+#'   name = "boundaries",
+#'   landing_url = "https://example.com/geodata",
+#'   data_urls = "https://example.com/boundaries.zip"
+#' )
+#' att_download(shp)
+#'
+#' # Non-interactive archive classification
+#' att_download(shp, classify = list(
+#'   metadata = c(".xml", ".pdf"),
+#'   ignore = ".html"
+#' ))
 #' }
-att_download <- function(source, store = NULL, cite = TRUE) {
+att_download <- function(source, store = NULL, cite = TRUE, classify = NULL) {
   if (!inherits(source, "att_source")) {
     cli::cli_abort("{.arg source} must be an {.cls att_source} object.")
   }
@@ -63,22 +94,34 @@ att_download <- function(source, store = NULL, cite = TRUE) {
   created <- timestamp_now()
 
   files_record <- list()
+  archives_record <- list()
   failures <- character(0)
 
   # Download data files (to source root)
   if (length(source$data_urls) > 0) {
-    cli::cli_alert_info(
-      "Downloading {length(source$data_urls)} data file{?s}..."
-    )
     for (i in seq_along(source$data_urls)) {
       url <- source$data_urls[i]
       fname <- derive_filename(source$data_urls, i)
-      dest <- file.path(source_dir, fname)
 
-      result <- download_file(url, dest, overwrite = FALSE)
-      result$location <- "root"
-      files_record[[fname]] <- result
-      if (!is.null(result$error)) failures <- c(failures, fname)
+      if (is_archive_url(url)) {
+        # Archive workflow: download, extract, classify, place
+        archive_result <- process_archive_url(
+          url, fname, source_dir, metadata_dir, classify = classify
+        )
+        archives_record[[fname]] <- archive_result$archive
+        files_record <- c(files_record, archive_result$files)
+        failures <- c(failures, archive_result$failures)
+      } else {
+        # Standard download
+        cli::cli_alert_info(
+          "Downloading {length(source$data_urls)} data file{?s}..."
+        )
+        dest <- file.path(source_dir, fname)
+        result <- download_file(url, dest, overwrite = FALSE)
+        result$location <- "root"
+        files_record[[fname]] <- result
+        if (!is.null(result$error)) failures <- c(failures, fname)
+      }
     }
   }
 
@@ -106,6 +149,7 @@ att_download <- function(source, store = NULL, cite = TRUE) {
     origin = "remote",
     landing_url = source$landing_url,
     metadata = source$metadata,
+    archives = if (length(archives_record) > 0) archives_record,
     files = files_record,
     created = created,
     last_updated = timestamp_now(),
@@ -127,7 +171,8 @@ att_download <- function(source, store = NULL, cite = TRUE) {
       "Source {.val {source$name}}: {length(failures)} file{?s} failed"
     )
     for (f in failures) {
-      cli::cli_alert_danger("  {.file {f}}: {files_record[[f]]$error}")
+      err <- files_record[[f]]$error %||% archives_record[[f]]$error
+      cli::cli_alert_danger("  {.file {f}}: {err}")
     }
   } else {
     cli::cli_alert_success(

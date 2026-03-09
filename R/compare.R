@@ -10,6 +10,10 @@
 #' original URLs. For local sources (`origin = "local"`), files are re-read
 #' from their original `source_path`.
 #'
+#' For archive sources, the archive is re-downloaded and its hash compared. If
+#' the archive hash matches, all extracted files are reported as `"match"`. If
+#' the archive hash differs, all extracted files are reported as `"changed"`.
+#'
 #' @param source A source name (character) or [att_source()] object.
 #' @param store Path to the store. Defaults to [att_store()].
 #' @return A data frame with columns `file`, `status` (`"match"`,
@@ -31,6 +35,7 @@ att_compare <- function(source, store = NULL) {
 
   prov <- jsonlite::read_json(prov_path)
   origin <- prov$origin %||% "remote"
+  has_archives <- !is.null(prov$archives) && length(prov$archives) > 0
 
   if (length(prov$files) == 0) {
     cli::cli_alert_info("No files recorded for {.val {name}}")
@@ -41,11 +46,74 @@ att_compare <- function(source, store = NULL) {
     )))
   }
 
-  cli::cli_alert_info(
-    "Comparing {length(prov$files)} file{?s} for {.val {name}}..."
-  )
+  results <- list()
 
-  results <- lapply(names(prov$files), function(fname) {
+  # Compare archive sources
+  if (has_archives) {
+    for (aname in names(prov$archives)) {
+      archive_info <- prov$archives[[aname]]
+
+      # Find files extracted from this archive
+      archive_file_names <- names(prov$files)[
+        vapply(prov$files, function(fi) {
+          identical(fi$extracted_from, aname)
+        }, logical(1))
+      ]
+
+      archive_result <- compare_fetch_archive(aname, archive_info)
+
+      if (archive_result$status == "match") {
+        cli::cli_alert_success(
+          "Archive {.file {aname}}: unchanged ({length(archive_file_names)} file{?s})"
+        )
+        for (fname in archive_file_names) {
+          recorded <- prov$files[[fname]]$sha256 %||% NA_character_
+          results <- c(results, list(data.frame(
+            file = fname, status = "match",
+            recorded_hash = recorded, source_hash = recorded,
+            stringsAsFactors = FALSE
+          )))
+        }
+      } else if (archive_result$status == "changed") {
+        cli::cli_alert_warning(
+          "Archive {.file {aname}}: source has changed"
+        )
+        for (fname in archive_file_names) {
+          results <- c(results, list(data.frame(
+            file = fname, status = "changed",
+            recorded_hash = prov$files[[fname]]$sha256 %||% NA_character_,
+            source_hash = NA_character_,
+            stringsAsFactors = FALSE
+          )))
+        }
+      } else {
+        cli::cli_alert_danger(
+          "Archive {.file {aname}}: could not fetch"
+        )
+        for (fname in archive_file_names) {
+          results <- c(results, list(data.frame(
+            file = fname, status = "error",
+            recorded_hash = prov$files[[fname]]$sha256 %||% NA_character_,
+            source_hash = NA_character_,
+            stringsAsFactors = FALSE
+          )))
+        }
+      }
+    }
+  }
+
+  # Compare regular (non-archive) files
+  regular_files <- names(prov$files)[
+    vapply(prov$files, function(fi) is.null(fi$extracted_from), logical(1))
+  ]
+
+  if (length(regular_files) > 0) {
+    cli::cli_alert_info(
+      "Comparing {length(regular_files)} file{?s} for {.val {name}}..."
+    )
+  }
+
+  for (fname in regular_files) {
     file_info <- prov$files[[fname]]
     recorded_hash <- file_info$sha256 %||% NA_character_
 
@@ -69,12 +137,12 @@ att_compare <- function(source, store = NULL) {
       cli::cli_alert_warning("{.file {fname}}: source has changed")
     }
 
-    data.frame(
+    results <- c(results, list(data.frame(
       file = fname, status = status,
       recorded_hash = recorded_hash, source_hash = source_hash,
       stringsAsFactors = FALSE
-    )
-  })
+    )))
+  }
 
   result <- do.call(rbind, results)
 

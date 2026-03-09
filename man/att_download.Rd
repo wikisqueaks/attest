@@ -4,7 +4,7 @@
 \alias{att_download}
 \title{Download Source Files}
 \usage{
-att_download(source, store = NULL, cite = TRUE)
+att_download(source, store = NULL, cite = TRUE, classify = NULL)
 }
 \arguments{
 \item{source}{An \code{\link[=att_source]{att_source()}} object.}
@@ -13,6 +13,12 @@ att_download(source, store = NULL, cite = TRUE)
 
 \item{cite}{Logical; if \code{TRUE} (default), generate a BibTeX citation and
 append it to \code{data-sources.bib} in the store root.}
+
+\item{classify}{Optional named list for non-interactive archive file
+classification. Elements \code{data}, \code{metadata}, and \code{ignore} each contain
+character vectors of file extensions (e.g.,
+\code{list(data = c(".shp", ".dbf"), metadata = ".xml")}). Only used for
+archive URLs; ignored for regular downloads.}
 }
 \value{
 A list containing the full provenance record, invisibly.
@@ -34,6 +40,20 @@ failures.
 record already exists for the source, it will error and recommend
 \code{\link[=att_refresh]{att_refresh()}} instead.
 }
+\section{Archive (zip) support}{
+
+
+When a URL in \code{data_urls} points to a \code{.zip} file, \code{att_download()}
+automatically downloads and extracts the archive. In an interactive session,
+you will be prompted to classify each extracted file as data, metadata, or
+ignore. In non-interactive sessions, all files default to data unless
+\code{classify} is provided.
+
+The archive itself is not retained, but its SHA-256 hash is recorded in
+provenance for future comparison. Each extracted file records which archive
+it came from.
+}
+
 \examples{
 \dontrun{
 src <- att_source(
@@ -41,5 +61,19 @@ src <- att_source(
   data_urls = c(data = "https://example.com/data.csv")
 )
 att_download(src)
+
+# Archive (zip) download with interactive classification
+shp <- att_source(
+  name = "boundaries",
+  landing_url = "https://example.com/geodata",
+  data_urls = "https://example.com/boundaries.zip"
+)
+att_download(shp)
+
+# Non-interactive archive classification
+att_download(shp, classify = list(
+  metadata = c(".xml", ".pdf"),
+  ignore = ".html"
+))
 }
 }
