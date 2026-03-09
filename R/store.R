@@ -1,6 +1,6 @@
 #' Get or Set the Active Store Path
 #'
-#' Retrieves or sets the path to the directory where acquired data sources are
+#' Retrieves or sets the path to the directory where attested data sources are
 #' stored. Resolution order: explicit `path` argument, then `attest.store`
 #' option, then `ATTEST_STORE` environment variable, then `"data/raw"` in the
 #' current working directory.

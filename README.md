@@ -12,7 +12,7 @@ alongside the data itself.
 
 ``` r
 # install.packages("pak")
-pak::pak("user/attest")
+pak::pak("wikisqueaks/attest")
 ```
 
 ## Example

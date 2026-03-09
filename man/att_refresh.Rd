@@ -19,7 +19,7 @@ A data frame summarising the comparison (columns: \code{file}, \code{status},
 \code{old_hash}, \code{new_hash}, \code{old_size}, \code{new_size}), invisibly.
 }
 \description{
-Re-fetches all files for a previously acquired source, compares them
+Re-fetches all files for a previously attested source, compares them
 against the recorded hashes, and updates the local store only if changes are
 detected. Optionally archives the current files before overwriting.
 }

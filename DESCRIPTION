@@ -3,11 +3,12 @@ Type: Package
 Title: Download and Document Data Provenance
 Version: 0.1.0
 Authors@R:
-    person("Jane", "Doe", email = "jane@example.com",
-           role = c("aut", "cre"))
+    person("KW", "Taylor", email = "kw.taylor@pm.me",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0009-0007-3849-1078"))
 Description: Convenience functions to download data from known URLs, archive
-    associated documentation, snapshot landing pages, track file integrity
-    via content hashes, and generate BibTeX citations. Designed for
+    associated documentation, track file integrity via content hashes,
+    and generate BibTeX citations. Designed for
     researchers who need reproducible records of externally sourced data,
     particularly from government and institutional sources.
 License: MIT + file LICENSE

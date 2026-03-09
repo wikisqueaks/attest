@@ -37,7 +37,7 @@ att_archive <- function(source, store = NULL) {
 
 #' Refresh a Source
 #'
-#' Re-fetches all files for a previously acquired source, compares them
+#' Re-fetches all files for a previously attested source, compares them
 #' against the recorded hashes, and updates the local store only if changes are
 #' detected. Optionally archives the current files before overwriting.
 #'

@@ -15,7 +15,7 @@ path.}
 The store path (character), invisibly when setting.
 }
 \description{
-Retrieves or sets the path to the directory where acquired data sources are
+Retrieves or sets the path to the directory where attested data sources are
 stored. Resolution order: explicit \code{path} argument, then \code{attest.store}
 option, then \code{ATTEST_STORE} environment variable, then \code{"data/raw"} in the
 current working directory.
