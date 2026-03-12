@@ -372,3 +372,86 @@ update_bib_file <- function(bib_path, key, bib_text) {
     writeLines(bib_text, bib_path)
   }
 }
+
+
+#' Parse our own BibTeX file into a list of entry lists
+#'
+#' Only handles the predictable format produced by `build_bib_entry()`.
+#' @noRd
+parse_bib_file <- function(bib_path) {
+  if (!file.exists(bib_path)) return(list())
+  lines <- readLines(bib_path, warn = FALSE)
+  text <- paste(lines, collapse = "\n")
+
+  # Split into entries
+  entry_pattern <- "@\\w+\\{[^,]+,(?s).*?\\n\\}"
+  matches <- gregexpr(entry_pattern, text, perl = TRUE)
+  entries_raw <- regmatches(text, matches)[[1]]
+
+  lapply(entries_raw, function(entry) {
+    # Extract key
+    key <- sub("^@\\w+\\{([^,]+),.*", "\\1", entry)
+
+    # Extract fields: "  name = {value}"
+    field_pattern <- "^\\s+(\\w+)\\s*=\\s*\\{(.*)\\}"
+    field_lines <- strsplit(entry, "\n")[[1]]
+    fields <- list()
+    for (line in field_lines) {
+      m <- regmatches(line, regexec(field_pattern, line))[[1]]
+      if (length(m) == 3) {
+        # Strip outer braces from author field ({...})
+        val <- m[3]
+        val <- sub("^\\{(.*)\\}$", "\\1", val)
+        fields[[m[2]]] <- val
+      }
+    }
+
+    fields$key <- key
+    fields
+  })
+}
+
+
+#' Format a parsed BibTeX entry as an APA-style markdown citation
+#' @noRd
+format_markdown_citation <- function(entry) {
+  author <- entry$author %||% "Unknown"
+  year <- entry$year %||% "n.d."
+  title <- entry$title %||% entry$key
+  note <- entry$note
+  url <- entry$url
+
+  # Author. (Year). *Title* [Note]. URL
+  parts <- paste0(author, ". (", year, "). *", title, "*")
+  if (!is.null(note)) parts <- paste0(parts, " ", note)
+  parts <- paste0(parts, ".")
+  if (!is.null(url)) parts <- paste0(parts, " ", url)
+
+  parts
+}
+
+
+#' Regenerate data-sources.md from data-sources.bib
+#' @noRd
+sync_markdown_citations <- function(bib_path) {
+  md_path <- sub("\\.bib$", ".md", bib_path)
+
+  entries <- parse_bib_file(bib_path)
+
+  if (length(entries) == 0) {
+    if (file.exists(md_path)) file.remove(md_path)
+    return(invisible(NULL))
+  }
+
+  # Sort by author then year
+  sort_keys <- vapply(entries, function(e) {
+    paste0(tolower(e$author %||% ""), "|", e$year %||% "")
+  }, character(1))
+  entries <- entries[order(sort_keys)]
+
+  citations <- vapply(entries, format_markdown_citation, character(1))
+  content <- c("# Data Sources", "", citations, "")
+
+  writeLines(content, md_path)
+  invisible(md_path)
+}

@@ -85,6 +85,7 @@ att_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
   if (write) {
     bib_path <- file.path(store, "data-sources.bib")
     update_bib_file(bib_path, key, bib_text)
+    sync_markdown_citations(bib_path)
     cli::cli_alert_success("BibTeX entry {.val {key}} written to {.path {bib_path}}")
   }
 

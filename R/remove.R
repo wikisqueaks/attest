@@ -56,6 +56,7 @@ att_remove <- function(source, store = NULL, force = FALSE) {
   if (file.exists(bib_path)) {
     bib_key <- gsub("[^a-zA-Z0-9]", "_", name)
     remove_bib_entry(bib_path, bib_key)
+    sync_markdown_citations(bib_path)
   }
 
   # Delete source directory
