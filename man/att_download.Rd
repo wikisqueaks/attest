@@ -43,7 +43,8 @@ record already exists for the source, it will error and recommend
 \section{Archive (zip) support}{
 
 
-When a URL in \code{data_urls} points to a \code{.zip} file, \code{att_download()}
+When a URL in \code{data_urls} points to an archive (\code{.zip}, \code{.tar.gz}, or
+\code{.tgz}), \code{att_download()}
 automatically downloads and extracts the archive. In an interactive session,
 you will be prompted to classify each extracted file as data, metadata, or
 ignore. In non-interactive sessions, all files default to data unless

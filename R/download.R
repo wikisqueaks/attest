@@ -17,7 +17,8 @@
 #'
 #' @section Archive (zip) support:
 #'
-#' When a URL in `data_urls` points to a `.zip` file, `att_download()`
+#' When a URL in `data_urls` points to an archive (`.zip`, `.tar.gz`, or
+#' `.tgz`), `att_download()`
 #' automatically downloads and extracts the archive. In an interactive session,
 #' you will be prompted to classify each extracted file as data, metadata, or
 #' ignore. In non-interactive sessions, all files default to data unless

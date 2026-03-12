@@ -9,6 +9,67 @@ test_that("is_archive_url detects zip URLs", {
   expect_false(is_archive_url("https://example.com/zippy.csv"))
 })
 
+test_that("is_archive_url detects tar.gz and tgz URLs", {
+  expect_true(is_archive_url("https://example.com/data.tar.gz"))
+  expect_true(is_archive_url("https://example.com/data.TAR.GZ"))
+  expect_true(is_archive_url("https://example.com/data.tgz"))
+  expect_true(is_archive_url("https://example.com/data.tar.gz?token=abc"))
+  expect_false(is_archive_url("https://example.com/data.gz"))
+  expect_false(is_archive_url("https://example.com/data.tar"))
+})
+
+# -- archive_type --------------------------------------------------------------
+
+test_that("archive_type identifies format", {
+  expect_equal(archive_type("data.zip"), "zip")
+  expect_equal(archive_type("data.ZIP"), "zip")
+  expect_equal(archive_type("data.tar.gz"), "tar.gz")
+  expect_equal(archive_type("data.TaR.Gz"), "tar.gz")
+  expect_equal(archive_type("data.tgz"), "tar.gz")
+  expect_equal(archive_type("https://example.com/data.tar.gz?v=1"), "tar.gz")
+  expect_true(is.na(archive_type("data.csv")))
+})
+
+# -- extract_archive -----------------------------------------------------------
+
+test_that("extract_archive handles zip files", {
+  tmp <- withr::local_tempdir()
+  src <- file.path(tmp, "src")
+  dir.create(src)
+  writeLines("hello", file.path(src, "a.txt"))
+  zip_path <- file.path(tmp, "test.zip")
+  withr::with_dir(src, utils::zip(zip_path, "a.txt"))
+
+  out <- file.path(tmp, "out")
+  dir.create(out)
+  result <- extract_archive(zip_path, out, "zip")
+  expect_true(!is.null(result))
+  expect_true(file.exists(file.path(out, "a.txt")))
+})
+
+test_that("extract_archive handles tar.gz files", {
+  tmp <- withr::local_tempdir()
+  src <- file.path(tmp, "src")
+  dir.create(src)
+  writeLines("hello", file.path(src, "a.txt"))
+  tar_path <- file.path(tmp, "test.tar.gz")
+  withr::with_dir(src, utils::tar(tar_path, "a.txt", compression = "gzip"))
+
+  out <- file.path(tmp, "out")
+  dir.create(out)
+  result <- extract_archive(tar_path, out, "tar.gz")
+  expect_true(!is.null(result))
+  expect_true(file.exists(file.path(out, "a.txt")))
+})
+
+test_that("extract_archive returns NULL on failure", {
+  tmp <- withr::local_tempdir()
+  bad_path <- file.path(tmp, "nonexistent.zip")
+  out <- file.path(tmp, "out")
+  dir.create(out)
+  expect_null(extract_archive(bad_path, out, "zip"))
+})
+
 # -- is_known_extension -------------------------------------------------------
 
 test_that("is_known_extension recognizes shapefile components", {
@@ -216,6 +277,24 @@ test_that("process_archive_url downloads and extracts a zip", {
 
   expect_equal(unname(roles["data.csv"]), "data")
   expect_equal(unname(roles["codebook.txt"]), "metadata")
+})
+
+test_that("extraction and classification work with tar.gz archives", {
+  tmp_dir <- withr::local_tempdir()
+  writeLines("col1,col2\n1,2\n3,4", file.path(tmp_dir, "data.csv"))
+  writeLines("Column descriptions", file.path(tmp_dir, "codebook.pdf"))
+  tar_path <- file.path(withr::local_tempdir(), "test.tar.gz")
+  withr::with_dir(tmp_dir, {
+    utils::tar(tar_path, c("data.csv", "codebook.pdf"), compression = "gzip")
+  })
+
+  exdir <- withr::local_tempdir()
+  extract_archive(tar_path, exdir, "tar.gz")
+  basenames <- basename(list.files(exdir, recursive = TRUE))
+
+  roles <- classify_extracted_files(basenames)
+  expect_equal(unname(roles["data.csv"]), "data")
+  expect_equal(unname(roles["codebook.pdf"]), "metadata")
 })
 
 

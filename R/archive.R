@@ -1,10 +1,47 @@
 # Archive handling ----------------------------------------------------------
 
-#' Check whether a URL points to a zip archive
+#' Check whether a URL points to a supported archive format
 #' @noRd
 is_archive_url <- function(url) {
   clean_url <- sub("[?#].*$", "", url)
-  grepl("\\.zip$", clean_url, ignore.case = TRUE)
+  grepl("\\.(zip|tar\\.gz|tgz)$", clean_url, ignore.case = TRUE)
+}
+
+#' Detect archive type from a filename or URL
+#' @return `"zip"`, `"tar.gz"`, or `NA_character_` if not recognized.
+#' @noRd
+archive_type <- function(path) {
+  clean <- sub("[?#].*$", "", path)
+  if (grepl("\\.zip$", clean, ignore.case = TRUE)) return("zip")
+  if (grepl("\\.(tar\\.gz|tgz)$", clean, ignore.case = TRUE)) return("tar.gz")
+  NA_character_
+}
+
+#' Extract an archive to a directory
+#'
+#' Dispatches to `utils::unzip()` or `utils::untar()` based on archive type.
+#' @param archive_path Path to the archive file.
+#' @param exdir Directory to extract into.
+#' @param type Archive type: `"zip"` or `"tar.gz"`.
+#' @return Character vector of extracted file paths (from `unzip`/`untar`),
+#'   or `NULL` on failure.
+#' @noRd
+extract_archive <- function(archive_path, exdir, type) {
+  tryCatch(
+    {
+      if (type == "zip") {
+        utils::unzip(archive_path, exdir = exdir)
+      } else {
+        utils::untar(archive_path, exdir = exdir)
+      }
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to extract archive: {conditionMessage(e)}"
+      )
+      NULL
+    }
+  )
 }
 
 #' Check whether a file extension is unambiguous enough to auto-classify
@@ -222,7 +259,7 @@ classify_by_extension <- function(files, classify) {
 
 #' Download, extract, classify, and place files from an archive URL
 #'
-#' @param url URL of the zip archive.
+#' @param url URL of the archive (`.zip`, `.tar.gz`, or `.tgz`).
 #' @param archive_name Filename for the archive (used as key in provenance).
 #' @param source_dir Path to the source directory (for data files).
 #' @param metadata_dir Path to the metadata subdirectory.
@@ -235,19 +272,21 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
                                 classify = NULL) {
   cli::cli_alert("Downloading archive {.url {url}}")
 
-  tmp_zip <- tempfile(fileext = ".zip")
-  on.exit(unlink(tmp_zip), add = TRUE)
+  type <- archive_type(url)
+  ext <- if (type == "zip") ".zip" else ".tar.gz"
+  tmp_archive <- tempfile(fileext = ext)
+  on.exit(unlink(tmp_archive), add = TRUE)
 
   archive_record <- tryCatch(
     {
       resp <- att_request(url) |> httr2::req_perform()
-      writeBin(httr2::resp_body_raw(resp), tmp_zip)
+      writeBin(httr2::resp_body_raw(resp), tmp_archive)
 
       list(
         url = url,
         downloaded = timestamp_now(),
-        sha256 = att_hash(tmp_zip),
-        size = file.size(tmp_zip),
+        sha256 = att_hash(tmp_archive),
+        size = file.size(tmp_archive),
         http_etag = httr2::resp_header(resp, "ETag"),
         http_last_modified = httr2::resp_header(resp, "Last-Modified"),
         http_content_type = httr2::resp_header(resp, "Content-Type"),
@@ -276,15 +315,7 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
-  extracted <- tryCatch(
-    utils::unzip(tmp_zip, exdir = tmp_dir),
-    error = function(e) {
-      cli::cli_alert_danger(
-        "Failed to extract archive: {conditionMessage(e)}"
-      )
-      NULL
-    }
-  )
+  extracted <- extract_archive(tmp_archive, tmp_dir, type)
 
   if (is.null(extracted)) {
     archive_record$error <- "Extraction failed"
@@ -388,14 +419,16 @@ compare_fetch_archive <- function(archive_name, archive_info) {
 
   cli::cli_alert("Fetching archive {.file {archive_name}}")
 
-  tmp_zip <- tempfile(fileext = ".zip")
-  on.exit(unlink(tmp_zip), add = TRUE)
+  type <- archive_type(archive_info$url)
+  ext <- if (identical(type, "zip")) ".zip" else ".tar.gz"
+  tmp_archive <- tempfile(fileext = ext)
+  on.exit(unlink(tmp_archive), add = TRUE)
 
   new_hash <- tryCatch(
     {
       resp <- att_request(url) |> httr2::req_perform()
-      writeBin(httr2::resp_body_raw(resp), tmp_zip)
-      att_hash(tmp_zip)
+      writeBin(httr2::resp_body_raw(resp), tmp_archive)
+      att_hash(tmp_archive)
     },
     error = function(e) {
       cli::cli_alert_danger(
@@ -443,14 +476,14 @@ refresh_fetch_archive <- function(archive_name, archive_info, file_records,
 
   cli::cli_alert("Fetching archive {.file {archive_name}}")
 
-  tmp_zip <- file.path(tmp_dir, archive_name)
+  tmp_archive <- file.path(tmp_dir, archive_name)
 
   download_result <- tryCatch(
     {
       resp <- att_request(url) |> httr2::req_perform()
-      writeBin(httr2::resp_body_raw(resp), tmp_zip)
+      writeBin(httr2::resp_body_raw(resp), tmp_archive)
       list(
-        hash = att_hash(tmp_zip),
+        hash = att_hash(tmp_archive),
         http_etag = httr2::resp_header(resp, "ETag"),
         http_last_modified = httr2::resp_header(resp, "Last-Modified"),
         http_content_type = httr2::resp_header(resp, "Content-Type")
@@ -516,14 +549,8 @@ refresh_fetch_archive <- function(archive_name, archive_info, file_records,
   extract_dir <- file.path(tmp_dir, "extracted")
   dir.create(extract_dir, showWarnings = FALSE)
 
-  tryCatch(
-    utils::unzip(tmp_zip, exdir = extract_dir),
-    error = function(e) {
-      cli::cli_alert_danger(
-        "Failed to extract archive: {conditionMessage(e)}"
-      )
-    }
-  )
+  type <- archive_type(url)
+  extract_archive(tmp_archive, extract_dir, type)
 
   extracted_files <- list.files(extract_dir, recursive = TRUE)
   extracted_basenames <- basename(extracted_files)

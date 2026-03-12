@@ -1,5 +1,6 @@
 # attest 0.3.1
 
+* `att_download()` now supports `.tar.gz` and `.tgz` archives in addition to `.zip`. Archive detection, extraction, classification, and all downstream operations (`att_check()`, `att_compare()`, `att_refresh()`) work with both formats.
 * `att_download()` now auto-classifies extracted archive files without prompting when all files have well-known extensions (e.g., shapefile bundles, CSVs, GeoJSON). The interactive classification prompt only appears when the archive contains files with ambiguous extensions.
 * `att_source()` gains `format` and `author` arguments. The `format` field (e.g., `"CSV"`, `"Shapefile"`, `"File Geodatabase"`) is included in APA-style BibTeX citations as `[Data set; Format]`. `att_update()` can also set the format after the fact.
 * `att_cite()` now includes a `note` field in BibTeX entries with the APA-style data set designation (`[Data set]` or `[Data set; Format]`).
