@@ -1,0 +1,29 @@
+{
+  "name": "usgs-earthquakes",
+  "dir_name": "usgs-earthquakes",
+  "origin": "remote",
+  "landing_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/csv.php",
+  "metadata": {
+    "title": "USGS M4.5+ Earthquakes, Past 30 Days",
+    "publisher": "U.S. Geological Survey",
+    "year": "2026"
+  },
+  "archives": {},
+  "files": {
+    "quakes.csv": {
+      "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.csv",
+      "downloaded": "2026-03-12T11:28:28-0700",
+      "size": 95628,
+      "sha256": "703c1cbf17b862cfdd5be7bcefb9ff33d87ca0745528464282aa376efaad0286",
+      "http_etag": {},
+      "http_last_modified": "Thu, 12 Mar 2026 18:28:27 GMT",
+      "http_content_type": "text/csv; charset=utf-8",
+      "skipped": false,
+      "error": {},
+      "location": "root"
+    }
+  },
+  "created": "2026-03-12T11:28:27-0700",
+  "last_updated": "2026-03-12T11:28:28-0700",
+  "attest_version": "0.3.0"
+}

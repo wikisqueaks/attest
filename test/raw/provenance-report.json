@@ -1,0 +1,120 @@
+{
+  "report_type": "attest_provenance_report",
+  "generated": "2026-03-12T11:31:18-0700",
+  "attest_version": "0.3.0",
+  "store": "C:/MARMOT2/projects/attest/test/raw",
+  "summary": {
+    "total_sources": 2,
+    "total_files": 7,
+    "files_verified": 7,
+    "files_failed": 0,
+    "all_verified": true
+  },
+  "sources": {
+    "us-states": {
+      "name": "us-states",
+      "origin": "remote",
+      "landing_url": "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+      "metadata": {
+        "title": "TIGER/Line State Boundaries 2024",
+        "publisher": "U.S. Census Bureau",
+        "year": "2024"
+      },
+      "created": "2026-03-12T11:28:35-0700",
+      "last_updated": "2026-03-12T11:28:39-0700",
+      "verified": true,
+      "files": [
+        {
+          "file": "tl_2024_us_state.dbf",
+          "location": "root",
+          "size": 11098,
+          "recorded_hash": "746b3338a34df7a872e9eef9305c837b1e7e079392d7faa7b45e7183eaf81104",
+          "verified_hash": "746b3338a34df7a872e9eef9305c837b1e7e079392d7faa7b45e7183eaf81104",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        },
+        {
+          "file": "tl_2024_us_state.prj",
+          "location": "root",
+          "size": 165,
+          "recorded_hash": "0b9041e921d9ebb43247d314608fe9e38a0b008ee793067fc1806199ea1fb9dd",
+          "verified_hash": "0b9041e921d9ebb43247d314608fe9e38a0b008ee793067fc1806199ea1fb9dd",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        },
+        {
+          "file": "tl_2024_us_state.shp",
+          "location": "root",
+          "size": 15531792,
+          "recorded_hash": "5eca8051ec802d987cb9bf67e899980a35b4ab7abb20084def7b9bbad8fe50e7",
+          "verified_hash": "5eca8051ec802d987cb9bf67e899980a35b4ab7abb20084def7b9bbad8fe50e7",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        },
+        {
+          "file": "tl_2024_us_state.shp.ea.iso.xml",
+          "location": "metadata",
+          "size": 32969,
+          "recorded_hash": "2ee018429d7905b29e16f6e6ad7f57edf5362fb7cd551c72fb4b52d0a1b4a421",
+          "verified_hash": "2ee018429d7905b29e16f6e6ad7f57edf5362fb7cd551c72fb4b52d0a1b4a421",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        },
+        {
+          "file": "tl_2024_us_state.shp.iso.xml",
+          "location": "metadata",
+          "size": 49144,
+          "recorded_hash": "d1e8b95d59e85750a7c5c0c79ca4e05bf001ca3fef7a57e41f36aa8f1e078b53",
+          "verified_hash": "d1e8b95d59e85750a7c5c0c79ca4e05bf001ca3fef7a57e41f36aa8f1e078b53",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        },
+        {
+          "file": "tl_2024_us_state.shx",
+          "location": "root",
+          "size": 548,
+          "recorded_hash": "690f7f029c3b30648635cb8d1ddb9756c510fda50a1eb98fc0d258b693f0815c",
+          "verified_hash": "690f7f029c3b30648635cb8d1ddb9756c510fda50a1eb98fc0d258b693f0815c",
+          "status": "ok",
+          "extracted_from": "tl_2024_us_state.zip"
+        }
+      ],
+      "archives": {
+        "tl_2024_us_state.zip": {
+          "url": "https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip",
+          "downloaded": "2026-03-12T11:28:36-0700",
+          "sha256": "ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92",
+          "size": 9954307,
+          "http_etag": {},
+          "http_last_modified": "Fri, 27 Jun 2025 20:04:34 GMT",
+          "http_content_type": "application/zip",
+          "error": {}
+        }
+      }
+    },
+    "usgs-earthquakes": {
+      "name": "usgs-earthquakes",
+      "origin": "remote",
+      "landing_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/csv.php",
+      "metadata": {
+        "title": "USGS M4.5+ Earthquakes, Past 30 Days",
+        "publisher": "U.S. Geological Survey",
+        "year": "2026"
+      },
+      "created": "2026-03-12T11:28:27-0700",
+      "last_updated": "2026-03-12T11:28:28-0700",
+      "verified": true,
+      "files": [
+        {
+          "file": "quakes.csv",
+          "location": "root",
+          "size": 95628,
+          "recorded_hash": "703c1cbf17b862cfdd5be7bcefb9ff33d87ca0745528464282aa376efaad0286",
+          "verified_hash": "703c1cbf17b862cfdd5be7bcefb9ff33d87ca0745528464282aa376efaad0286",
+          "status": "ok",
+          "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.csv"
+        }
+      ]
+    }
+  }
+}

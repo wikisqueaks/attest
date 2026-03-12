@@ -161,6 +161,83 @@ att_prove <- function(store = NULL, output = NULL) {
 }
 
 
+#' @export
+print.att_report <- function(x, ...) {
+  cli::cli_rule("Provenance Report")
+  cli::cli_text("Generated: {x$generated}")
+  cli::cli_text("attest version: {x$attest_version}")
+  cli::cli_text("Store: {.path {x$store}}")
+  cli::cli_text("")
+
+  s <- x$summary
+  if (s$all_verified) {
+    cli::cli_alert_success(
+      "{s$total_sources} source{?s}, {s$total_files} file{?s} \u2014 all verified"
+    )
+  } else {
+    cli::cli_alert_danger(
+      "{s$total_sources} source{?s}, {s$total_files} file{?s} \u2014 {s$files_failed} failed"
+    )
+  }
+  cli::cli_text("")
+
+  for (src in x$sources) {
+    status_icon <- if (src$verified) "\u2714" else "\u2716"
+    cli::cli_rule("{status_icon} {src$name}")
+
+    meta <- src$metadata
+    if (!is.null(meta$title)) cli::cli_text("  Title: {meta$title}")
+    if (!is.null(meta$publisher)) cli::cli_text("  Publisher: {meta$publisher}")
+    if (!is.null(meta$year)) cli::cli_text("  Year: {meta$year}")
+    if (!is.null(src$landing_url)) {
+      cli::cli_text("  URL: {.url {src$landing_url}}")
+    }
+    cli::cli_text("  Origin: {src$origin}")
+    cli::cli_text("  Created: {src$created}")
+
+    if (!is.null(src$archives)) {
+      for (aname in names(src$archives)) {
+        a <- src$archives[[aname]]
+        cli::cli_text("  Archive: {.file {aname}} (SHA-256: {substr(a$sha256, 1, 16)}\u2026)")
+      }
+    }
+
+    cli::cli_text("")
+    cli::cli_text("  {.strong Files}:")
+
+    for (f in src$files) {
+      hash_short <- if (!is.na(f$verified_hash)) {
+        substr(f$verified_hash, 1, 16)
+      } else {
+        "n/a"
+      }
+      size_label <- if (!is.null(f$size)) format_size(f$size) else "?"
+
+      icon <- switch(f$status,
+        ok = "\u2714",
+        changed = "\u2716",
+        missing = "?",
+        "\u2716"
+      )
+
+      loc <- if (f$location == "metadata") " [metadata]" else ""
+      from <- if (!is.null(f$extracted_from)) {
+        paste0(" \u2190 ", f$extracted_from)
+      } else {
+        ""
+      }
+
+      cli::cli_text(
+        "  {icon} {f$file} ({size_label}) {hash_short}\u2026{loc}{from}"
+      )
+    }
+    cli::cli_text("")
+  }
+
+  invisible(x)
+}
+
+
 #' Verify a source without printing per-file messages
 #'
 #' Same logic as att_verify() but suppresses per-file cli output.
