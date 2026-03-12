@@ -1,5 +1,6 @@
 # attest (development version)
 
+* `att_prove()` generates a comprehensive provenance report across all sources in the store — verifies every file, compiles metadata, and writes a JSON audit document.
 * `att_update()` modifies provenance metadata (title, publisher, author, year, landing URL) and regenerates the BibTeX citation. Use this to correct mistakes without manually editing `provenance.json`.
 * `att_remove()` deletes a source directory and its BibTeX entry, with interactive confirmation or `force = TRUE` for scripts.
 
