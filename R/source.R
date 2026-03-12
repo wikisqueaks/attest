@@ -24,6 +24,10 @@
 #' @param title Title of the data source (for citation).
 #' @param publisher Publisher or institution name (for citation).
 #' @param year Publication or release year (for citation).
+#' @param author Author name (for citation). If not set, `publisher` is used.
+#' @param format Data format description (e.g., `"CSV"`, `"Shapefile"`,
+#'   `"File Geodatabase"`). Used in APA-style citations as
+#'   `[Data set; Format]`.
 #' @param description Brief description of the data source.
 #' @param metadata Named list of additional metadata fields. Merged with
 #'   `title`, `publisher`, `year`, and `description`.
@@ -49,6 +53,8 @@ att_source <- function(name,
                        title = NULL,
                        publisher = NULL,
                        year = NULL,
+                       author = NULL,
+                       format = NULL,
                        description = NULL,
                        metadata = list()) {
   if (!is.character(name) || length(name) != 1 || nchar(name) == 0) {
@@ -70,7 +76,7 @@ att_source <- function(name,
   # Merge explicit metadata fields with the metadata list
   meta <- c(
     list(title = title, publisher = publisher, year = year,
-         description = description),
+         author = author, format = format, description = description),
     metadata
   )
 

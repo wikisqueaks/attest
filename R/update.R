@@ -16,6 +16,7 @@
 #' @param author New author name. If not set, `publisher` is used for
 #'   citations.
 #' @param year New publication year.
+#' @param format New data format description (e.g., `"CSV"`, `"Shapefile"`).
 #' @return The updated provenance record, invisibly.
 #' @export
 #' @examples
@@ -27,7 +28,8 @@
 #' )
 #' }
 att_update <- function(source, store = NULL, landing_url = NULL, title = NULL,
-                       publisher = NULL, author = NULL, year = NULL) {
+                       publisher = NULL, author = NULL, year = NULL,
+                       format = NULL) {
   name <- resolve_source_name(source)
   if (is.null(store)) store <- att_store()
 
@@ -41,7 +43,8 @@ att_update <- function(source, store = NULL, landing_url = NULL, title = NULL,
     title = title,
     publisher = publisher,
     author = author,
-    year = year
+    year = year,
+    format = format
   )
   updates <- Filter(Negate(is.null), updates)
 
@@ -60,7 +63,7 @@ att_update <- function(source, store = NULL, landing_url = NULL, title = NULL,
     cli::cli_alert_info("landing_url: {.url {old}} \u2192 {.url {updates$landing_url}}")
   }
 
-  metadata_fields <- c("title", "publisher", "author", "year")
+  metadata_fields <- c("title", "publisher", "author", "year", "format")
   if (is.null(prov$metadata)) prov$metadata <- list()
 
   for (field in metadata_fields) {

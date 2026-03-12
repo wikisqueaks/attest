@@ -63,10 +63,19 @@ att_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
     format(Sys.Date(), "%Y-%m-%d")
   }
 
+  # APA-style type/format note: [Data set] or [Data set; Format]
+  data_format <- meta$format
+  note <- if (!is.null(data_format)) {
+    paste0("[Data set; ", data_format, "]")
+  } else {
+    "[Data set]"
+  }
+
   fields <- list(
     title = title,
     author = paste0("{", author, "}"),
     year = year,
+    note = note,
     url = url,
     urldate = urldate
   )

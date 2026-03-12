@@ -14,6 +14,8 @@ att_source(
   title = NULL,
   publisher = NULL,
   year = NULL,
+  author = NULL,
+  format = NULL,
   description = NULL,
   metadata = list()
 )
@@ -48,6 +50,12 @@ filenames, same as \code{data_paths}. Used with \code{\link[=att_register]{att_r
 \item{publisher}{Publisher or institution name (for citation).}
 
 \item{year}{Publication or release year (for citation).}
+
+\item{author}{Author name (for citation). If not set, \code{publisher} is used.}
+
+\item{format}{Data format description (e.g., \code{"CSV"}, \code{"Shapefile"},
+\code{"File Geodatabase"}). Used in APA-style citations as
+\verb{[Data set; Format]}.}
 
 \item{description}{Brief description of the data source.}
 

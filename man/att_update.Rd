@@ -11,7 +11,8 @@ att_update(
   title = NULL,
   publisher = NULL,
   author = NULL,
-  year = NULL
+  year = NULL,
+  format = NULL
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ att_update(
 citations.}
 
 \item{year}{New publication year.}
+
+\item{format}{New data format description (e.g., \code{"CSV"}, \code{"Shapefile"}).}
 }
 \value{
 The updated provenance record, invisibly.
