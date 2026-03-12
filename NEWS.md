@@ -1,5 +1,6 @@
 # attest (development version)
 
+* `att_update()` modifies provenance metadata (title, publisher, author, year, landing URL) and regenerates the BibTeX citation. Use this to correct mistakes without manually editing `provenance.json`.
 * `att_remove()` deletes a source directory and its BibTeX entry, with interactive confirmation or `force = TRUE` for scripts.
 
 # attest 0.3.0
