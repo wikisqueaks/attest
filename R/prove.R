@@ -131,7 +131,7 @@ att_prove <- function(store = NULL, output = NULL) {
 
   # Console summary
   cli::cli_text("")
-  cli::cli_rule("Provenance Report")
+  cli::cli_rule("attest Provenance Report")
   cli::cli_alert_info(
     "{length(sources)} source{?s}, {total_files} file{?s}"
   )
@@ -163,7 +163,7 @@ att_prove <- function(store = NULL, output = NULL) {
 
 #' @export
 print.att_report <- function(x, ...) {
-  cli::cli_rule("Provenance Report")
+  cli::cli_rule("attest Provenance Report")
   cli::cli_text("Generated: {x$generated}")
   cli::cli_text("attest version: {x$attest_version}")
   cli::cli_text("Store: {.path {x$store}}")
