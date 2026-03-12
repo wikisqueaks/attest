@@ -9,6 +9,51 @@ test_that("is_archive_url detects zip URLs", {
   expect_false(is_archive_url("https://example.com/zippy.csv"))
 })
 
+# -- is_known_extension -------------------------------------------------------
+
+test_that("is_known_extension recognizes shapefile components", {
+  expect_true(is_known_extension("layer.shp"))
+  expect_true(is_known_extension("layer.dbf"))
+  expect_true(is_known_extension("layer.shx"))
+  expect_true(is_known_extension("layer.prj"))
+  expect_true(is_known_extension("layer.cpg"))
+  expect_true(is_known_extension("layer.sbn"))
+  expect_true(is_known_extension("layer.sbx"))
+})
+
+test_that("is_known_extension recognizes shapefile XML sidecar", {
+  expect_true(is_known_extension("layer.shp.xml"))
+  # Plain .xml is NOT known (ambiguous)
+  expect_false(is_known_extension("config.xml"))
+})
+
+test_that("is_known_extension recognizes common data formats", {
+  expect_true(is_known_extension("data.csv"))
+  expect_true(is_known_extension("data.tsv"))
+  expect_true(is_known_extension("data.parquet"))
+  expect_true(is_known_extension("data.geojson"))
+  expect_true(is_known_extension("data.gpkg"))
+  expect_true(is_known_extension("data.json"))
+  expect_true(is_known_extension("data.tif"))
+})
+
+test_that("is_known_extension recognizes metadata formats", {
+  expect_true(is_known_extension("codebook.pdf"))
+})
+
+test_that("is_known_extension recognizes documentation name patterns", {
+  expect_true(is_known_extension("README.txt"))
+  expect_true(is_known_extension("metadata.xml"))
+  expect_true(is_known_extension("changelog.html"))
+})
+
+test_that("is_known_extension returns FALSE for ambiguous extensions", {
+  expect_false(is_known_extension("config.xml"))
+  expect_false(is_known_extension("index.html"))
+  expect_false(is_known_extension("styles.qml"))
+  expect_false(is_known_extension("unknown.foo"))
+})
+
 # -- suggest_file_role --------------------------------------------------------
 
 test_that("suggest_file_role classifies by extension", {
@@ -120,6 +165,20 @@ test_that("classify_extracted_files uses classify arg when provided", {
   files <- c("a.shp", "b.dbf", "c.xml")
   result <- classify_extracted_files(files, classify = list(metadata = ".xml"))
   expect_equal(unname(result), c("data", "data", "metadata"))
+})
+
+test_that("classify_extracted_files auto-classifies when all extensions are known", {
+  # Shapefile bundle — all known extensions, should not prompt
+  files <- c("layer.shp", "layer.dbf", "layer.shx", "layer.prj",
+             "layer.cpg", "layer.sbn", "layer.sbx", "layer.shp.xml")
+  result <- classify_extracted_files(files)
+  expect_equal(unname(result), rep("data", 8))
+})
+
+test_that("classify_extracted_files auto-classifies mixed known data and metadata", {
+  files <- c("data.csv", "codebook.pdf")
+  result <- classify_extracted_files(files)
+  expect_equal(unname(result), c("data", "metadata"))
 })
 
 # -- process_archive_url (integration) ---------------------------------------

@@ -1,5 +1,6 @@
 # attest (development version)
 
+* `att_download()` now auto-classifies extracted archive files without prompting when all files have well-known extensions (e.g., shapefile bundles, CSVs, GeoJSON). The interactive classification prompt only appears when the archive contains files with ambiguous extensions.
 * `att_source()` gains `format` and `author` arguments. The `format` field (e.g., `"CSV"`, `"Shapefile"`, `"File Geodatabase"`) is included in APA-style BibTeX citations as `[Data set; Format]`. `att_update()` can also set the format after the fact.
 * `att_cite()` now includes a `note` field in BibTeX entries with the APA-style data set designation (`[Data set]` or `[Data set; Format]`).
 * `att_prove()` generates a comprehensive provenance report across all sources in the store — verifies every file, compiles metadata, and writes a JSON audit document.

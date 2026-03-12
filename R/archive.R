@@ -7,6 +7,45 @@ is_archive_url <- function(url) {
   grepl("\\.zip$", clean_url, ignore.case = TRUE)
 }
 
+#' Check whether a file extension is unambiguous enough to auto-classify
+#'
+#' Returns TRUE for extensions where the role (data or metadata) is
+#' well-known, meaning we can skip the interactive classification prompt.
+#' @noRd
+is_known_extension <- function(filename) {
+  ext <- tolower(tools::file_ext(filename))
+  base <- tolower(basename(filename))
+
+  known_data <- c(
+    # Shapefile components
+    "shp", "dbf", "shx", "prj", "cpg", "sbn", "sbx",
+    "fbn", "fbx", "ain", "aih", "atx", "ixs", "mxs",
+    # Tabular
+    "csv", "tsv", "parquet", "feather", "arrow", "xlsx", "xls",
+    # Geospatial
+    "geojson", "gpkg", "kml", "gml", "tif", "tiff", "gpx",
+    # Other common data
+    "json", "rds", "rda", "rdata", "sav", "dta", "sqlite", "gdb"
+  )
+
+  known_metadata <- "pdf"
+
+  if (ext %in% c(known_data, known_metadata)) return(TRUE)
+
+  # Shapefile XML sidecar (.shp.xml)
+  if (ext == "xml" && grepl("\\.shp\\.xml$", base)) return(TRUE)
+
+  # Documentation name patterns are also confident
+  metadata_patterns <- c("readme", "codebook", "dictionary", "metadata",
+                         "license", "changelog")
+  for (pat in metadata_patterns) {
+    if (grepl(pat, base, ignore.case = TRUE)) return(TRUE)
+  }
+
+  FALSE
+}
+
+
 #' Suggest a default role for an extracted file based on extension
 #' @noRd
 suggest_file_role <- function(filename) {
@@ -46,7 +85,14 @@ classify_extracted_files <- function(files, classify = NULL) {
     return(classify_by_extension(files, classify))
   }
 
-  if (!interactive()) {
+  # Skip prompt when all files have well-known extensions
+  all_known <- all(vapply(files, is_known_extension, logical(1)))
+  if (all_known) {
+    cli::cli_alert_info("All files have known extensions; auto-classifying.")
+    return(roles)
+  }
+
+  if (!rlang::is_interactive()) {
     cli::cli_alert_info(
       "Non-interactive session: all extracted files classified as data."
     )
