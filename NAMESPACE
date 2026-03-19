@@ -2,6 +2,7 @@
 
 S3method(print,att_report)
 S3method(print,att_source)
+export(att_add_metadata)
 export(att_check)
 export(att_cite)
 export(att_compare)

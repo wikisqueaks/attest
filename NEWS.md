@@ -1,5 +1,6 @@
 # attest (development version)
 
+* `att_add_metadata()` downloads additional metadata files (codebooks, schemas, documentation) to an existing source without re-downloading data files. Provenance is updated in place.
 * `att_cite()` now generates a `data-sources.md` file alongside `data-sources.bib`, containing APA-style plain-text citations sorted alphabetically by author. The markdown file is kept in sync automatically when citations are added, updated, or removed.
 * `att_download()` now supports `.tar.gz` and `.tgz` archives in addition to `.zip`. Archive detection, extraction, classification, and all downstream operations (`att_check()`, `att_compare()`, `att_refresh()`) work with both formats.
 

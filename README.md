@@ -146,9 +146,14 @@ accumulates BibTeX entries across all sources.
 | `att_download()` | First-time download (remote): hash, write provenance and citation |
 | `att_register()` | First-time registration (local): copy/move files into store, record provenance |
 | `att_refresh()` | Re-fetch, compare, archive if changed, update in place |
+| `att_add_metadata()` | Add metadata files to an existing source |
 | `att_verify()` | Compare local file hashes to recorded hashes |
 | `att_compare()` | Re-fetch and compare hashes to detect source changes |
+| `att_check()` | Lightweight change detection (HTTP HEAD or file stat) |
 | `att_cite()` | Regenerate a BibTeX entry |
+| `att_update()` | Modify provenance metadata (title, publisher, etc.) |
+| `att_remove()` | Delete a source and its BibTeX entry |
+| `att_prove()` | Generate a provenance report across all sources |
 | `att_status()` | Summary table of all sources in the store |
 | `att_read_provenance()` | Read a source's provenance record |
 | `att_hash()` | SHA-256 hash of a file |
