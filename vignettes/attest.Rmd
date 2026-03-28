@@ -229,6 +229,32 @@ att_compare(survey)
 att_status()
 ```
 
+## Sharing sources across projects
+
+When starting a new project that needs the same data, use `att_export()` to
+create a portable manifest of all sources in the store:
+
+```{r export}
+att_export(file.path(store, "attest-manifest.json"))
+```
+
+The manifest is a JSON file that captures URLs, local paths, metadata, and
+archive classifications — everything needed to recreate the store. It contains
+no file contents, just the recipe.
+
+In a new project, `att_import()` reads the manifest, generates a `get-data.R`
+script with explicit `att_source()` / `att_download()` / `att_register()`
+calls, and executes it:
+
+```r
+# In a new project:
+att_import("attest-manifest.json")
+```
+
+The generated script is kept as a readable, version-controllable record of
+your data acquisition step. You can edit it to adjust paths, add sources, or
+remove ones you don't need.
+
 ```{r cleanup, include = FALSE}
 unlink(store, recursive = TRUE)
 unlink(local_dir, recursive = TRUE)

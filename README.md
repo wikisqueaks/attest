@@ -121,6 +121,31 @@ the copy and simply records provenance. All downstream functions
 (`att_verify()`, `att_compare()`, `att_refresh()`) work with registered
 sources the same way they do with downloaded sources.
 
+### Sharing sources across projects
+
+To start a new project with the same data sources, export a manifest and use
+it to set up the new project:
+
+``` r
+# In the original project: export a manifest
+att_export()
+#> ✔ Exported 3 sources to 'attest-manifest.json'
+```
+
+Copy `attest-manifest.json` to the new project (or check it into version
+control), then import:
+
+``` r
+# In the new project: generate get-data.R and acquire all sources
+att_import()
+#> ✔ Generated 'get-data.R'
+#> ℹ Acquiring 3 sources from manifest...
+```
+
+`att_import()` writes a `get-data.R` script with explicit `att_source()` /
+`att_download()` / `att_register()` calls, then executes it. The script stays
+as a readable, editable record of your data acquisition step.
+
 ## What gets recorded
 
 For each source, `attest` writes a `_attest/provenance.json` file containing:
@@ -153,6 +178,8 @@ accumulates BibTeX entries across all sources.
 | `att_cite()` | Regenerate a BibTeX entry |
 | `att_update()` | Modify provenance metadata (title, publisher, etc.) |
 | `att_remove()` | Delete a source and its BibTeX entry |
+| `att_export()` | Export a portable manifest of all sources |
+| `att_import()` | Generate and run a data-acquisition script from a manifest |
 | `att_prove()` | Generate a provenance report across all sources |
 | `att_status()` | Summary table of all sources in the store |
 | `att_read_provenance()` | Read a source's provenance record |
