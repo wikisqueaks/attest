@@ -1,5 +1,8 @@
 # attest (development version)
 
+* `att_export()` writes a portable JSON manifest of all sources in the store — capturing URLs, local paths, metadata, and archive classifications. Use with `att_import()` to recreate the store in another project.
+* `att_import()` reads an `att_export()` manifest and replays each acquisition (`att_download()` for remote sources, `att_register()` for local). Existing sources are skipped; missing local paths are reported as failures.
+* `att_cite()` no longer renders `url = {list()}` in BibTeX entries when a source has no `landing_url`. The `url` field is now omitted entirely in that case.
 * `att_add_metadata()` downloads additional metadata files (codebooks, schemas, documentation) to an existing source without re-downloading data files. Provenance is updated in place.
 * `att_cite()` now generates a `data-sources.md` file alongside `data-sources.bib`, containing APA-style plain-text citations sorted alphabetically by author. The markdown file is kept in sync automatically when citations are added, updated, or removed.
 * `att_download()` now supports `.tar.gz` and `.tgz` archives in addition to `.zip`. Archive detection, extraction, classification, and all downstream operations (`att_check()`, `att_compare()`, `att_refresh()`) work with both formats.

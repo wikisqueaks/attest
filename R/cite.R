@@ -41,9 +41,13 @@ att_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
   if (length(meta) == 0 && length(prov$metadata) > 0) {
     meta <- prov$metadata
   }
+
   if (is.null(landing_url)) {
     landing_url <- prov$landing_url
   }
+
+  # Guard against empty lists from JSON null round-tripping
+  if (length(landing_url) == 0) landing_url <- NULL
 
   # Build fields
   if (is.null(key)) {
