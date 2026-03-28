@@ -4,11 +4,11 @@
 \alias{att_export}
 \title{Export a Portable Manifest of All Sources}
 \usage{
-att_export(path = NULL, store = NULL)
+att_export(path = "attest-manifest.json", store = NULL)
 }
 \arguments{
-\item{path}{Output file path. Defaults to \code{attest-manifest.json} in
-the store root.}
+\item{path}{Output file path. Defaults to \code{attest-manifest.json} in the
+current working directory.}
 
 \item{store}{Path to the provenance store. Defaults to \code{\link[=att_store]{att_store()}}.}
 }
@@ -17,24 +17,15 @@ The manifest (a list), invisibly.
 }
 \description{
 Reads every provenance record in the store and writes a single JSON
-manifest file that can be used to recreate the store in another project
-via \code{\link[=att_import]{att_import()}}.
+manifest capturing the information needed to recreate each source. The
+manifest is a portable recipe — it records URLs, local paths, metadata,
+and archive classifications, but no file contents.
 }
 \details{
-The manifest captures the information needed to reconstruct each
-\code{\link[=att_source]{att_source()}} object and replay the original acquisition. For remote
-sources this means URLs; for local sources it means original file paths.
-No file contents are included — only the recipe.
+The manifest is intended to be version-controlled and shared across
+projects. Use \code{\link[=att_import]{att_import()}} in a new project to generate and execute
+a data-acquisition script from the manifest.
 }
-\section{Archive sources}{
-
-For sources that were downloaded from \code{.zip}, \code{.tar.gz}, or \code{.tgz}
-archives, the manifest records the archive URL and a \code{classify} list
-reconstructed from the provenance record. This allows \code{\link[=att_import]{att_import()}} to
-pass the classification through to \code{\link[=att_download]{att_download()}} without interactive
-prompts.
-}
-
 \examples{
 \dontrun{
 att_export()

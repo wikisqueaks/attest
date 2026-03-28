@@ -4,33 +4,36 @@
 \alias{att_import}
 \title{Import Sources from a Manifest}
 \usage{
-att_import(path, store = NULL)
+att_import(path = "attest-manifest.json", script = "get-data.R", store = NULL)
 }
 \arguments{
-\item{path}{Path to the manifest JSON file (created by \code{\link[=att_export]{att_export()}}).}
+\item{path}{Path to the manifest JSON file (created by \code{\link[=att_export]{att_export()}}).
+Defaults to \code{attest-manifest.json} in the current working directory.}
+
+\item{script}{Path for the generated R script. Defaults to \code{get-data.R}
+in the current working directory.}
 
 \item{store}{Path to the target provenance store. Defaults to
 \code{\link[=att_store]{att_store()}}.}
 }
 \value{
-A data frame with columns \code{source}, \code{origin}, and \code{status},
-invisibly. Status values: \code{"downloaded"}, \code{"registered"}, \code{"skipped"},
-\code{"failed"}.
+The script path, invisibly.
 }
 \description{
-Reads an \code{\link[=att_export]{att_export()}} manifest and replays each source acquisition
-in the target store. Remote sources are re-downloaded with
-\code{\link[=att_download]{att_download()}}; local sources are re-registered with \code{\link[=att_register]{att_register()}}.
+Reads an \code{\link[=att_export]{att_export()}} manifest, generates a data-acquisition R script,
+and executes it. The script contains explicit \code{\link[=att_source]{att_source()}},
+\code{\link[=att_download]{att_download()}}, and \code{\link[=att_register]{att_register()}} calls — one block per source —
+and is kept as a readable record of the import.
 }
 \details{
-Sources that already exist in the target store (i.e., their
-\code{provenance.json} is already present) are skipped. Local sources whose
-original paths no longer exist are also skipped with a warning.
+Sources that already exist in the target store are included in the script
+but skipped during execution (because \code{\link[=att_download]{att_download()}} and
+\code{\link[=att_register]{att_register()}} refuse to overwrite existing provenance).
 }
 \examples{
 \dontrun{
-att_import("attest-manifest.json")
-att_import("attest-manifest.json", store = "data/raw")
+att_import()
+att_import("attest-manifest.json", script = "scripts/get-data.R")
 }
 }
 \seealso{

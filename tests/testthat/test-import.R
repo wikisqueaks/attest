@@ -1,11 +1,37 @@
+test_that("att_import generates a get-data.R script", {
+  ts <- create_test_store()
+  old_store <- getOption("attest.store")
+  withr::defer(options(attest.store = old_store))
+  att_store(ts$store)
+
+  manifest_path <- file.path(ts$store, "manifest.json")
+  att_export(path = manifest_path)
+
+  new_store <- withr::local_tempdir()
+  script_path <- file.path(new_store, "get-data.R")
+
+  # Import into the same store so it skips (no network needed)
+  att_import(
+    path = manifest_path,
+    script = script_path,
+    store = ts$store
+  )
+
+  expect_true(file.exists(script_path))
+
+  script_text <- readLines(script_path)
+  expect_true(any(grepl("library\\(attest\\)", script_text)))
+  expect_true(any(grepl("att_source", script_text)))
+  expect_true(any(grepl("att_download", script_text)))
+  expect_true(any(grepl("test-source", script_text)))
+})
+
 test_that("att_import registers local sources from manifest", {
-  # Create a source store, export it, then import into a new store
   store <- withr::local_tempdir()
   old_store <- getOption("attest.store")
   withr::defer(options(attest.store = old_store))
   att_store(store)
 
-  # Create a local data file to register
   local_file <- file.path(withr::local_tempdir(), "data.csv")
   writeLines("a,b\n1,2", local_file)
 
@@ -16,23 +42,27 @@ test_that("att_import registers local sources from manifest", {
   )
   att_register(src, store = store)
 
-  manifest <- att_export(store = store)
+  manifest_path <- file.path(store, "manifest.json")
+  att_export(path = manifest_path, store = store)
 
   # Import into a new store
   new_store <- withr::local_tempdir()
-  manifest_path <- file.path(store, "attest-manifest.json")
+  script_path <- file.path(new_store, "get-data.R")
 
-  result <- att_import(manifest_path, store = new_store)
+  att_import(
+    path = manifest_path,
+    script = script_path,
+    store = new_store
+  )
 
-  expect_equal(nrow(result), 1)
-  expect_equal(result$source, "local-import-test")
-  expect_equal(result$status, "registered")
-
-  # Verify the new store has the source
-  new_prov_path <- file.path(
+  new_prov <- file.path(
     new_store, "local-import-test", "_attest", "provenance.json"
   )
-  expect_true(file.exists(new_prov_path))
+  expect_true(file.exists(new_prov))
+
+  # Script should contain att_register
+  script_text <- readLines(script_path)
+  expect_true(any(grepl("att_register", script_text)))
 })
 
 test_that("att_import skips existing sources", {
@@ -41,21 +71,24 @@ test_that("att_import skips existing sources", {
   withr::defer(options(attest.store = old_store))
   att_store(ts$store)
 
-  # Create a manifest pointing at the same store
-  manifest <- att_export(store = ts$store)
-  manifest_path <- file.path(ts$store, "attest-manifest.json")
+  manifest_path <- file.path(ts$store, "manifest.json")
+  att_export(path = manifest_path)
+
+  script_path <- file.path(ts$store, "get-data.R")
 
   # Import into the same store — should skip
-  result <- att_import(manifest_path, store = ts$store)
+  result <- att_import(
+    path = manifest_path,
+    script = script_path,
+    store = ts$store
+  )
 
-  expect_equal(nrow(result), 1)
-  expect_equal(result$status, "skipped")
+  expect_equal(result, script_path)
 })
 
 test_that("att_import fails gracefully for missing local paths", {
   store <- withr::local_tempdir()
 
-  # Write a manifest with a nonexistent local path
   manifest <- list(
     manifest_type = "attest_manifest",
     generated = "2026-01-01T00:00:00+0000",
@@ -71,15 +104,21 @@ test_that("att_import fails gracefully for missing local paths", {
   )
 
   manifest_path <- file.path(store, "manifest.json")
+  dir.create(store, showWarnings = FALSE)
   jsonlite::write_json(
     manifest, manifest_path,
     pretty = TRUE, auto_unbox = TRUE
   )
 
-  result <- att_import(manifest_path, store = store)
+  script_path <- file.path(store, "get-data.R")
+  att_import(
+    path = manifest_path,
+    script = script_path,
+    store = store
+  )
 
-  expect_equal(nrow(result), 1)
-  expect_equal(result$status, "failed")
+  # Script should still be generated even though execution failed
+  expect_true(file.exists(script_path))
 })
 
 test_that("att_import validates manifest type", {
@@ -109,5 +148,47 @@ test_that("att_import handles empty manifest", {
   )
 
   result <- att_import(manifest_path, store = store)
-  expect_equal(nrow(result), 0)
+  expect_equal(result, "get-data.R")
+})
+
+test_that("att_import script includes classify for archive sources", {
+  store <- withr::local_tempdir()
+
+  manifest <- list(
+    manifest_type = "attest_manifest",
+    generated = "2026-01-01T00:00:00+0000",
+    attest_version = "0.3.1",
+    sources = list(
+      list(
+        name = "archive-test",
+        origin = "remote",
+        landing_url = "https://example.com",
+        data_urls = list("data.zip" = "https://example.com/data.zip"),
+        metadata = list(title = "Archive Test"),
+        classify = list(
+          data = list(".shp", ".dbf"),
+          metadata = list(".pdf")
+        )
+      )
+    )
+  )
+
+  manifest_path <- file.path(store, "manifest.json")
+  dir.create(store, showWarnings = FALSE)
+  jsonlite::write_json(
+    manifest, manifest_path,
+    pretty = TRUE, auto_unbox = TRUE
+  )
+
+  script_path <- file.path(store, "get-data.R")
+
+  # Will fail on download (fake URL) but script should still be written
+  att_import(
+    path = manifest_path,
+    script = script_path,
+    store = store
+  )
+
+  script_text <- readLines(script_path)
+  expect_true(any(grepl("classify", script_text)))
 })

@@ -4,7 +4,8 @@ test_that("att_export creates a valid manifest from a single source", {
   withr::defer(options(attest.store = old_store))
   att_store(ts$store)
 
-  manifest <- att_export()
+  path <- file.path(ts$store, "manifest.json")
+  manifest <- att_export(path = path)
 
   expect_equal(manifest$manifest_type, "attest_manifest")
   expect_equal(length(manifest$sources), 1)
@@ -27,26 +28,14 @@ test_that("att_export writes a JSON file", {
   withr::defer(options(attest.store = old_store))
   att_store(ts$store)
 
-  att_export()
-  manifest_path <- file.path(ts$store, "attest-manifest.json")
+  path <- file.path(ts$store, "manifest.json")
+  att_export(path = path)
 
-  expect_true(file.exists(manifest_path))
+  expect_true(file.exists(path))
 
-  parsed <- jsonlite::read_json(manifest_path)
+  parsed <- jsonlite::read_json(path)
   expect_equal(parsed$manifest_type, "attest_manifest")
   expect_equal(length(parsed$sources), 1)
-})
-
-test_that("att_export writes to custom path", {
-  ts <- create_test_store()
-  old_store <- getOption("attest.store")
-  withr::defer(options(attest.store = old_store))
-  att_store(ts$store)
-
-  custom_path <- file.path(ts$store, "custom", "manifest.json")
-  att_export(path = custom_path)
-
-  expect_true(file.exists(custom_path))
 })
 
 test_that("att_export handles local sources", {
@@ -87,7 +76,8 @@ test_that("att_export handles local sources", {
     pretty = TRUE, auto_unbox = TRUE
   )
 
-  manifest <- att_export()
+  path <- file.path(store, "manifest.json")
+  manifest <- att_export(path = path)
 
   src <- manifest$sources[[1]]
   expect_equal(src$origin, "local")
@@ -150,7 +140,8 @@ test_that("att_export handles archive sources", {
     pretty = TRUE, auto_unbox = TRUE
   )
 
-  manifest <- att_export()
+  path <- file.path(store, "manifest.json")
+  manifest <- att_export(path = path)
 
   src <- manifest$sources[[1]]
   expect_equal(src$data_urls[["data.zip"]], "https://example.com/data.zip")
@@ -199,13 +190,18 @@ test_that("att_export handles multiple sources", {
     )
   }
 
-  manifest <- att_export()
+  path <- file.path(store, "manifest.json")
+  manifest <- att_export(path = path)
   expect_equal(length(manifest$sources), 2)
 })
 
 test_that("att_export errors on empty store", {
   store <- withr::local_tempdir()
-  expect_snapshot(att_export(store = store), error = TRUE)
+  expect_snapshot(
+    att_export(path = file.path(store, "m.json"), store = store),
+    error = TRUE,
+    transform = function(x) gsub(store, "<STORE>", x, fixed = TRUE)
+  )
 })
 
 test_that("att_export excludes archived provenance records", {
@@ -225,7 +221,8 @@ test_that("att_export excludes archived provenance records", {
     auto_unbox = TRUE
   )
 
-  manifest <- att_export()
+  path <- file.path(ts$store, "manifest.json")
+  manifest <- att_export(path = path)
   expect_equal(length(manifest$sources), 1)
   expect_equal(manifest$sources[[1]]$name, "test-source")
 })

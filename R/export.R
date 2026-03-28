@@ -1,23 +1,16 @@
 #' Export a Portable Manifest of All Sources
 #'
 #' Reads every provenance record in the store and writes a single JSON
-#' manifest file that can be used to recreate the store in another project
-#' via [att_import()].
+#' manifest capturing the information needed to recreate each source. The
+#' manifest is a portable recipe — it records URLs, local paths, metadata,
+#' and archive classifications, but no file contents.
 #'
-#' The manifest captures the information needed to reconstruct each
-#' [att_source()] object and replay the original acquisition. For remote
-#' sources this means URLs; for local sources it means original file paths.
-#' No file contents are included — only the recipe.
+#' The manifest is intended to be version-controlled and shared across
+#' projects. Use [att_import()] in a new project to generate and execute
+#' a data-acquisition script from the manifest.
 #'
-#' @section Archive sources:
-#' For sources that were downloaded from `.zip`, `.tar.gz`, or `.tgz`
-#' archives, the manifest records the archive URL and a `classify` list
-#' reconstructed from the provenance record. This allows [att_import()] to
-#' pass the classification through to [att_download()] without interactive
-#' prompts.
-#'
-#' @param path Output file path. Defaults to `attest-manifest.json` in
-#'   the store root.
+#' @param path Output file path. Defaults to `attest-manifest.json` in the
+#'   current working directory.
 #' @param store Path to the provenance store. Defaults to [att_store()].
 #' @return The manifest (a list), invisibly.
 #' @seealso [att_import()] to replay the manifest in another project.
@@ -27,7 +20,7 @@
 #' att_export()
 #' att_export("my-sources.json")
 #' }
-att_export <- function(path = NULL, store = NULL) {
+att_export <- function(path = "attest-manifest.json", store = NULL) {
   if (is.null(store)) store <- att_store()
 
   if (!dir.exists(store)) {
@@ -63,10 +56,6 @@ att_export <- function(path = NULL, store = NULL) {
     attest_version = as.character(utils::packageVersion("attest")),
     sources = sources
   )
-
-  if (is.null(path)) {
-    path <- file.path(store, "attest-manifest.json")
-  }
 
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(
@@ -119,8 +108,6 @@ export_remote_source <- function(prov) {
     }
   }
 
-  # Build data_urls: non-archive data files + archive URLs
-
   data_urls <- list()
   metadata_urls <- list()
 
@@ -151,9 +138,7 @@ export_remote_source <- function(prov) {
     metadata_urls = metadata_urls
   )
 
-  # Drop empty URL lists
-
-if (length(result$data_urls) == 0) result$data_urls <- NULL
+  if (length(result$data_urls) == 0) result$data_urls <- NULL
   if (length(result$metadata_urls) == 0) result$metadata_urls <- NULL
 
   # Reconstruct classify from archive file placements
