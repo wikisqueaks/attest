@@ -60,7 +60,11 @@ att_compare <- function(source, store = NULL) {
         }, logical(1))
       ]
 
-      archive_result <- compare_fetch_archive(aname, archive_info)
+      archive_result <- if (!is.null(archive_info$source_path)) {
+        compare_fetch_local_archive(aname, archive_info)
+      } else {
+        compare_fetch_archive(aname, archive_info)
+      }
 
       if (archive_result$status == "match") {
         cli::cli_alert_success(

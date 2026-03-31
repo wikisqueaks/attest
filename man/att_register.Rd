@@ -4,7 +4,7 @@
 \alias{att_register}
 \title{Register Local Files}
 \usage{
-att_register(source, store = NULL, move = FALSE, cite = TRUE)
+att_register(source, store = NULL, move = FALSE, cite = TRUE, classify = NULL)
 }
 \arguments{
 \item{source}{An \code{\link[=att_source]{att_source()}} object with \code{data_paths} and/or
@@ -13,11 +13,18 @@ att_register(source, store = NULL, move = FALSE, cite = TRUE)
 \item{store}{Path to the provenance store. Defaults to \code{\link[=att_store]{att_store()}}.}
 
 \item{move}{Logical; if \code{TRUE}, delete the original file after a successful
-copy into the store. Ignored when the file is already in the correct
-location. Defaults to \code{FALSE} (copy, keeping the original).}
+copy into the store. For archives, the original archive file is deleted
+after successful extraction. Ignored when the file is already in the
+correct location. Defaults to \code{FALSE} (copy, keeping the original).}
 
 \item{cite}{Logical; if \code{TRUE} (default), generate a BibTeX citation and
 append it to \code{data-sources.bib} in the store root.}
+
+\item{classify}{Optional named list for non-interactive archive file
+classification. Elements \code{data}, \code{metadata}, and \code{ignore} each contain
+character vectors of file extensions (e.g.,
+\code{list(data = c(".shp", ".dbf"), metadata = ".xml")}). Only used for
+archive paths; ignored for regular files.}
 }
 \value{
 A list containing the full provenance record, invisibly.
@@ -33,6 +40,21 @@ original absolute path (\code{source_path}) instead of a URL. Downstream
 functions (\code{\link[=att_verify]{att_verify()}}, \code{\link[=att_refresh]{att_refresh()}}) work with registered sources;
 \code{\link[=att_check]{att_check()}} will report \code{"not_remote"} for each file.
 }
+\section{Archive (zip) support}{
+
+
+When a path in \code{data_paths} points to an archive (\code{.zip}, \code{.tar.gz}, or
+\code{.tgz}), \code{att_register()} automatically extracts the archive and classifies
+its contents, just like \code{\link[=att_download]{att_download()}} does for remote archives. In an
+interactive session, you will be prompted to classify each extracted file as
+data, metadata, or ignore. In non-interactive sessions, all files default to
+data unless \code{classify} is provided.
+
+The archive file itself is not copied into the store, but its SHA-256 hash
+and original path are recorded in provenance for future comparison. Each
+extracted file records which archive it came from.
+}
+
 \examples{
 \dontrun{
 src <- att_source(
@@ -43,5 +65,18 @@ src <- att_source(
   publisher = "Ministry of Statistics"
 )
 att_register(src)
+
+# Register a local archive with interactive classification
+shp <- att_source(
+  name = "boundaries",
+  data_paths = c("boundaries.zip" = "~/data/boundaries.zip")
+)
+att_register(shp)
+
+# Non-interactive archive classification
+att_register(shp, classify = list(
+  metadata = c(".xml", ".pdf"),
+  ignore = ".html"
+))
 }
 }

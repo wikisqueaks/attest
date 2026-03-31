@@ -41,7 +41,11 @@ att_check <- function(source, store = NULL) {
   if (has_archives) {
     for (aname in names(prov$archives)) {
       archive_info <- prov$archives[[aname]]
-      archive_results[[aname]] <- check_archive_head(aname, archive_info)
+      if (!is.null(archive_info$source_path)) {
+        archive_results[[aname]] <- check_archive_local(aname, archive_info)
+      } else {
+        archive_results[[aname]] <- check_archive_head(aname, archive_info)
+      }
     }
   }
 

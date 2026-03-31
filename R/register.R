@@ -9,14 +9,33 @@
 #' functions ([att_verify()], [att_refresh()]) work with registered sources;
 #' [att_check()] will report `"not_remote"` for each file.
 #'
+#' @section Archive (zip) support:
+#'
+#' When a path in `data_paths` points to an archive (`.zip`, `.tar.gz`, or
+#' `.tgz`), `att_register()` automatically extracts the archive and classifies
+#' its contents, just like [att_download()] does for remote archives. In an
+#' interactive session, you will be prompted to classify each extracted file as
+#' data, metadata, or ignore. In non-interactive sessions, all files default to
+#' data unless `classify` is provided.
+#'
+#' The archive file itself is not copied into the store, but its SHA-256 hash
+#' and original path are recorded in provenance for future comparison. Each
+#' extracted file records which archive it came from.
+#'
 #' @param source An [att_source()] object with `data_paths` and/or
 #'   `metadata_paths` populated.
 #' @param store Path to the provenance store. Defaults to [att_store()].
 #' @param move Logical; if `TRUE`, delete the original file after a successful
-#'   copy into the store. Ignored when the file is already in the correct
-#'   location. Defaults to `FALSE` (copy, keeping the original).
+#'   copy into the store. For archives, the original archive file is deleted
+#'   after successful extraction. Ignored when the file is already in the
+#'   correct location. Defaults to `FALSE` (copy, keeping the original).
 #' @param cite Logical; if `TRUE` (default), generate a BibTeX citation and
 #'   append it to `data-sources.bib` in the store root.
+#' @param classify Optional named list for non-interactive archive file
+#'   classification. Elements `data`, `metadata`, and `ignore` each contain
+#'   character vectors of file extensions (e.g.,
+#'   `list(data = c(".shp", ".dbf"), metadata = ".xml")`). Only used for
+#'   archive paths; ignored for regular files.
 #' @return A list containing the full provenance record, invisibly.
 #' @export
 #' @examples
@@ -29,8 +48,22 @@
 #'   publisher = "Ministry of Statistics"
 #' )
 #' att_register(src)
+#'
+#' # Register a local archive with interactive classification
+#' shp <- att_source(
+#'   name = "boundaries",
+#'   data_paths = c("boundaries.zip" = "~/data/boundaries.zip")
+#' )
+#' att_register(shp)
+#'
+#' # Non-interactive archive classification
+#' att_register(shp, classify = list(
+#'   metadata = c(".xml", ".pdf"),
+#'   ignore = ".html"
+#' ))
 #' }
-att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
+att_register <- function(source, store = NULL, move = FALSE, cite = TRUE,
+                         classify = NULL) {
   if (!inherits(source, "att_source")) {
     cli::cli_abort("{.arg source} must be an {.cls att_source} object.")
   }
@@ -70,6 +103,7 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
   created <- timestamp_now()
 
   files_record <- list()
+  archives_record <- list()
   failures <- character(0)
 
   # Copy data files (to source root)
@@ -80,12 +114,22 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
     for (i in seq_along(source$data_paths)) {
       path <- source$data_paths[i]
       fname <- derive_local_filename(source$data_paths, i)
-      dest <- file.path(source_dir, fname)
 
-      result <- register_file(path, dest, move = move)
-      result$location <- "root"
-      files_record[[fname]] <- result
-      if (!is.null(result$error)) failures <- c(failures, fname)
+      if (is_archive_path(path)) {
+        # Archive workflow: extract, classify, place
+        archive_result <- process_archive_path(
+          path, fname, source_dir, metadata_dir, classify = classify
+        )
+        archives_record[[fname]] <- archive_result$archive
+        files_record <- c(files_record, archive_result$files)
+        failures <- c(failures, archive_result$failures)
+      } else {
+        dest <- file.path(source_dir, fname)
+        result <- register_file(path, dest, move = move)
+        result$location <- "root"
+        files_record[[fname]] <- result
+        if (!is.null(result$error)) failures <- c(failures, fname)
+      }
     }
   }
 
@@ -112,6 +156,7 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
     origin = "local",
     landing_url = source$landing_url,
     metadata = source$metadata,
+    archives = if (length(archives_record) > 0) archives_record,
     files = files_record,
     created = created,
     last_updated = timestamp_now(),
@@ -133,7 +178,8 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
       "Source {.val {source$name}}: {length(failures)} file{?s} failed"
     )
     for (f in failures) {
-      cli::cli_alert_danger("  {.file {f}}: {files_record[[f]]$error}")
+      err <- files_record[[f]]$error %||% archives_record[[f]]$error
+      cli::cli_alert_danger("  {.file {f}}: {err}")
     }
     if (move) {
       cli::cli_alert_info("Originals kept because of failures.")
@@ -141,9 +187,22 @@ att_register <- function(source, store = NULL, move = FALSE, cite = TRUE) {
   } else {
     # Delete originals only when move = TRUE and all files succeeded
     if (move) {
+      # Delete original archive files
+      for (aname in names(archives_record)) {
+        rec <- archives_record[[aname]]
+        if (!is.null(rec$source_path) && file.exists(rec$source_path)) {
+          file.remove(rec$source_path)
+          cli::cli_alert_info(
+            "Removed original archive: {.path {rec$source_path}}"
+          )
+        }
+      }
+
+      # Delete original regular files
       for (fname in names(files_record)) {
         rec <- files_record[[fname]]
-        if (rec$same_file) next
+        if (!is.null(rec$extracted_from)) next
+        if (isTRUE(rec$same_file)) next
 
         dest <- resolve_file_path(store, source$dir_name, fname, rec)
         if (identical(att_hash(rec$source_path), att_hash(dest))) {

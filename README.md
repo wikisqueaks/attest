@@ -116,6 +116,18 @@ the originals are deleted (after verifying the copy):
 att_register(survey, move = TRUE)
 ```
 
+Archive files (`.zip`, `.tar.gz`, `.tgz`) are automatically detected,
+extracted, and classified — the same workflow as `att_download()` for remote
+archives:
+
+``` r
+shp <- att_source(
+  name = "boundaries",
+  data_paths = c("boundaries.zip" = "~/data/boundaries.zip")
+)
+att_register(shp, classify = list(metadata = c(".xml", ".pdf")))
+```
+
 If the files are already in the correct store location, `att_register()` skips
 the copy and simply records provenance. All downstream functions
 (`att_verify()`, `att_compare()`, `att_refresh()`) work with registered

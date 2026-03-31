@@ -161,7 +161,12 @@ generate_source_block <- function(entry) {
       acquire_call <- "att_download(src)"
     }
   } else {
-    acquire_call <- "att_register(src)"
+    if (!is.null(entry$classify)) {
+      classify_str <- deparse_classify(entry$classify)
+      acquire_call <- paste0("att_register(src, classify = ", classify_str, ")")
+    } else {
+      acquire_call <- "att_register(src)"
+    }
   }
 
   c(source_call, acquire_call)
@@ -274,9 +279,11 @@ execute_source_entry <- function(entry, store) {
       description = meta$description
     )
 
+    classify <- unlist_classify(entry$classify)
+
     tryCatch(
       {
-        att_register(src, store = store)
+        att_register(src, store = store, classify = classify)
         "ok"
       },
       error = function(e) {

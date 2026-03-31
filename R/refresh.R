@@ -105,9 +105,15 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
         }
       }
 
-      result <- refresh_fetch_archive(
-        aname, archive_info, archive_file_records, tmp_dir
-      )
+      result <- if (!is.null(archive_info$source_path)) {
+        refresh_fetch_local_archive(
+          aname, archive_info, archive_file_records, tmp_dir
+        )
+      } else {
+        refresh_fetch_archive(
+          aname, archive_info, archive_file_records, tmp_dir
+        )
+      }
       comparison <- c(comparison, result$files)
       archive_updates[[aname]] <- result
     }
@@ -184,12 +190,30 @@ att_refresh <- function(source, store = NULL, archive = TRUE) {
   }
 
   # Update archive provenance
+  archive_ts_field <- if (origin == "local") "registered" else "downloaded"
   for (aname in names(archive_updates)) {
     update <- archive_updates[[aname]]
     if (isTRUE(update$archive_changed) && !is.na(update$archive_hash)) {
       prov$archives[[aname]]$sha256 <- update$archive_hash
-      prov$archives[[aname]]$downloaded <- timestamp_now()
-      prov$archives[[aname]]$size <- file.size(file.path(tmp_dir, aname))
+      prov$archives[[aname]][[archive_ts_field]] <- timestamp_now()
+
+      # Update size: for remote archives, read from temp download;
+      # for local archives, re-stat the source path
+      if (!is.null(prov$archives[[aname]]$source_path)) {
+        sp <- prov$archives[[aname]]$source_path
+        if (file.exists(sp)) {
+          prov$archives[[aname]]$size <- file.size(sp)
+          prov$archives[[aname]]$source_modified <- format(
+            file.mtime(sp), "%Y-%m-%dT%H:%M:%S%z"
+          )
+        }
+      } else {
+        tmp_archive <- file.path(tmp_dir, aname)
+        if (file.exists(tmp_archive)) {
+          prov$archives[[aname]]$size <- file.size(tmp_archive)
+        }
+      }
+
       if (!is.null(update$http_headers)) {
         prov$archives[[aname]]$http_etag <- update$http_headers$http_etag
         prov$archives[[aname]]$http_last_modified <-

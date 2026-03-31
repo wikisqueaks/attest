@@ -260,3 +260,107 @@ test_that("att_register uses basename when paths are unnamed", {
   expect_true("my-data.csv" %in% names(prov$files))
   expect_true(file.exists(file.path(store, "basename-test", "my-data.csv")))
 })
+
+
+# Local archive tests -------------------------------------------------------
+
+test_that("att_register extracts and classifies a local zip archive", {
+  store <- withr::local_tempdir()
+  ext_dir <- withr::local_tempdir()
+
+  # Create files and zip them
+  writeLines("a,b\n1,2", file.path(ext_dir, "data.csv"))
+  writeLines("column a: integer", file.path(ext_dir, "codebook.pdf"))
+  zip_path <- file.path(ext_dir, "bundle.zip")
+  withr::with_dir(ext_dir, {
+    utils::zip(zip_path, c("data.csv", "codebook.pdf"), flags = "-q")
+  })
+
+  src <- att_source(
+    name = "zip-register",
+    data_paths = c("bundle.zip" = zip_path),
+    title = "Zip Test"
+  )
+
+  prov <- att_register(src, store = store, cite = FALSE,
+    classify = list(metadata = ".pdf")
+  )
+
+  expect_equal(prov$origin, "local")
+  expect_true("bundle.zip" %in% names(prov$archives))
+  expect_true("data.csv" %in% names(prov$files))
+  expect_true("codebook.pdf" %in% names(prov$files))
+  expect_equal(prov$files[["data.csv"]]$location, "root")
+  expect_equal(prov$files[["codebook.pdf"]]$location, "metadata")
+  expect_equal(prov$files[["data.csv"]]$extracted_from, "bundle.zip")
+
+  # Files should exist in the store
+  expect_true(
+    file.exists(file.path(store, "zip-register", "data.csv"))
+  )
+  expect_true(
+    file.exists(file.path(store, "zip-register", "metadata", "codebook.pdf"))
+  )
+
+  # Archive record should have source_path, not url
+  archive_rec <- prov$archives[["bundle.zip"]]
+  expect_true(!is.null(archive_rec$source_path))
+  expect_null(archive_rec$url)
+  expect_true(nchar(archive_rec$sha256) > 0)
+})
+
+test_that("att_register with move = TRUE deletes original archive", {
+  store <- withr::local_tempdir()
+  ext_dir <- withr::local_tempdir()
+
+  writeLines("x,y\n1,2", file.path(ext_dir, "data.csv"))
+  zip_path <- file.path(ext_dir, "to-delete.zip")
+  withr::with_dir(ext_dir, {
+    utils::zip(zip_path, "data.csv", flags = "-q")
+  })
+
+  src <- att_source(
+    name = "zip-move",
+    data_paths = c("to-delete.zip" = zip_path),
+    title = "Zip Move Test"
+  )
+
+  att_register(src, store = store, move = TRUE, cite = FALSE)
+
+  expect_false(file.exists(zip_path))
+  expect_true(
+    file.exists(file.path(store, "zip-move", "data.csv"))
+  )
+})
+
+test_that("att_register mixes regular files and archives", {
+  store <- withr::local_tempdir()
+  ext_dir <- withr::local_tempdir()
+
+  # A regular file
+  writeLines("standalone data", file.path(ext_dir, "extra.csv"))
+
+  # An archive
+  writeLines("a,b\n1,2", file.path(ext_dir, "data.csv"))
+  zip_path <- file.path(ext_dir, "archive.zip")
+  withr::with_dir(ext_dir, {
+    utils::zip(zip_path, "data.csv", flags = "-q")
+  })
+
+  src <- att_source(
+    name = "mixed-register",
+    data_paths = c(
+      "extra.csv" = file.path(ext_dir, "extra.csv"),
+      "archive.zip" = zip_path
+    ),
+    title = "Mixed Test"
+  )
+
+  prov <- att_register(src, store = store, cite = FALSE)
+
+  expect_true("extra.csv" %in% names(prov$files))
+  expect_true("data.csv" %in% names(prov$files))
+  expect_true("archive.zip" %in% names(prov$archives))
+  expect_null(prov$files[["extra.csv"]]$extracted_from)
+  expect_equal(prov$files[["data.csv"]]$extracted_from, "archive.zip")
+})

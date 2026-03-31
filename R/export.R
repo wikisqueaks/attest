@@ -157,12 +157,23 @@ export_remote_source <- function(prov) {
 #' @noRd
 export_local_source <- function(prov) {
   files <- prov$files %||% list()
+  archives <- prov$archives %||% list()
+
+  # Determine which files came from archives
+  archive_files <- character(0)
+  for (fname in names(files)) {
+    if (!is.null(files[[fname]]$extracted_from)) {
+      archive_files <- c(archive_files, fname)
+    }
+  }
 
   data_paths <- list()
   metadata_paths <- list()
 
+  # Regular (non-archive) files
   for (fname in names(files)) {
     fi <- files[[fname]]
+    if (fname %in% archive_files) next
     location <- fi$location %||% "root"
     source_path <- fi$source_path
     if (is.null(source_path)) next
@@ -174,6 +185,14 @@ export_local_source <- function(prov) {
     }
   }
 
+  # Archive source paths
+  for (aname in names(archives)) {
+    source_path <- archives[[aname]]$source_path
+    if (!is.null(source_path)) {
+      data_paths[[aname]] <- source_path
+    }
+  }
+
   result <- list(
     data_paths = data_paths,
     metadata_paths = metadata_paths
@@ -181,6 +200,14 @@ export_local_source <- function(prov) {
 
   if (length(result$data_paths) == 0) result$data_paths <- NULL
   if (length(result$metadata_paths) == 0) result$metadata_paths <- NULL
+
+  # Reconstruct classify from archive file placements
+  if (length(archive_files) > 0) {
+    classify <- reconstruct_classify(files, archive_files)
+    if (!is.null(classify)) {
+      result$classify <- classify
+    }
+  }
 
   result
 }

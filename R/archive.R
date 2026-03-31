@@ -7,6 +7,12 @@ is_archive_url <- function(url) {
   grepl("\\.(zip|tar\\.gz|tgz)$", clean_url, ignore.case = TRUE)
 }
 
+#' Check whether a local path is a supported archive format
+#' @noRd
+is_archive_path <- function(path) {
+  !is.na(archive_type(path))
+}
+
 #' Detect archive type from a filename or URL
 #' @return `"zip"`, `"tar.gz"`, or `NA_character_` if not recognized.
 #' @noRd
@@ -406,6 +412,144 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
 }
 
 
+#' Extract, classify, and place files from a local archive
+#'
+#' The local-file counterpart to `process_archive_url()`. Hashes the archive,
+#' extracts to a temp directory, classifies files, and places them in the
+#' source/metadata directories.
+#'
+#' @param path Path to the local archive file.
+#' @param archive_name Filename for the archive (used as key in provenance).
+#' @param source_dir Path to the source directory (for data files).
+#' @param metadata_dir Path to the metadata subdirectory.
+#' @param classify Extension-based classification (for non-interactive use).
+#' @return A list with `archive` (record for the archive itself), `files`
+#'   (named list of file records), and `failures` (character vector of failed
+#'   file names).
+#' @noRd
+process_archive_path <- function(path, archive_name, source_dir, metadata_dir,
+                                 classify = NULL) {
+  abs_path <- normalizePath(path, mustWork = FALSE)
+  cli::cli_alert("Registering archive {.path {abs_path}}")
+
+  if (!file.exists(abs_path)) {
+    cli::cli_alert_danger("Archive not found: {.path {abs_path}}")
+    return(list(
+      archive = list(
+        source_path = abs_path, registered = NULL, sha256 = NULL,
+        size = NULL, error = paste0("File not found: ", abs_path)
+      ),
+      files = list(),
+      failures = archive_name
+    ))
+  }
+
+  type <- archive_type(path)
+  archive_record <- list(
+    source_path = abs_path,
+    registered = timestamp_now(),
+    sha256 = att_hash(abs_path),
+    size = file.size(abs_path),
+    source_modified = format(file.mtime(abs_path), "%Y-%m-%dT%H:%M:%S%z"),
+    error = NULL
+  )
+
+  # Extract
+  tmp_dir <- tempfile("attest_extract_")
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  extracted <- extract_archive(abs_path, tmp_dir, type)
+
+  if (is.null(extracted)) {
+    archive_record$error <- "Extraction failed"
+    return(list(
+      archive = archive_record,
+      files = list(),
+      failures = archive_name
+    ))
+  }
+
+  # List files (recursive, relative paths)
+  rel_paths <- list.files(tmp_dir, recursive = TRUE)
+
+  if (length(rel_paths) == 0) {
+    cli::cli_alert_warning("Archive was empty.")
+    return(list(
+      archive = archive_record,
+      files = list(),
+      failures = character(0)
+    ))
+  }
+
+  # Use basenames for placement; check for collisions
+  basenames <- basename(rel_paths)
+  if (anyDuplicated(basenames)) {
+    cli::cli_alert_warning(
+      "Archive contains files with duplicate names in different directories. ",
+      "Using full relative paths."
+    )
+    basenames <- rel_paths
+  }
+
+  cli::cli_alert_success(
+    "Extracted {length(rel_paths)} file{?s} from {.file {archive_name}}"
+  )
+
+  # Classify
+  roles <- classify_extracted_files(basenames, classify = classify)
+
+  # Place files and record provenance
+  files_record <- list()
+  failures <- character(0)
+
+  for (j in seq_along(rel_paths)) {
+    fname <- basenames[j]
+    role <- unname(roles[j])
+
+    if (role == "ignore") next
+
+    src_path <- file.path(tmp_dir, rel_paths[j])
+
+    if (role == "metadata") {
+      dest <- file.path(metadata_dir, fname)
+      location <- "metadata"
+    } else {
+      dest <- file.path(source_dir, fname)
+      location <- "root"
+    }
+
+    tryCatch(
+      {
+        file.copy(src_path, dest, overwrite = FALSE)
+        files_record[[fname]] <- list(
+          extracted_from = archive_name,
+          size = file.size(dest),
+          sha256 = att_hash(dest),
+          location = location,
+          error = NULL
+        )
+      },
+      error = function(e) {
+        cli::cli_alert_danger(
+          "Failed to place {.file {fname}}: {conditionMessage(e)}"
+        )
+        files_record[[fname]] <<- list(
+          extracted_from = archive_name,
+          size = NULL,
+          sha256 = NULL,
+          location = location,
+          error = conditionMessage(e)
+        )
+        failures <<- c(failures, fname)
+      }
+    )
+  }
+
+  list(archive = archive_record, files = files_record, failures = failures)
+}
+
+
 # Helpers for compare / refresh / check on archive sources ------------------
 
 #' Re-download an archive and compare its hash (read-only)
@@ -672,4 +816,217 @@ check_archive_head <- function(archive_name, archive_info) {
     )
     list(status = "unchanged", url = url)
   }
+}
+
+
+# Local archive helpers ----------------------------------------------------
+
+#' Stat-based check on a local archive file
+#'
+#' Used by `att_check()` for local archive sources. Compares file size and
+#' modification time against the recorded provenance values.
+#' @noRd
+check_archive_local <- function(archive_name, archive_info) {
+  source_path <- archive_info$source_path
+
+  cli::cli_alert("Checking archive {.path {source_path}}")
+
+  if (is.null(source_path) || !file.exists(source_path)) {
+    cli::cli_alert_danger(
+      "Archive {.file {archive_name}}: source file no longer exists"
+    )
+    return(list(status = "source_missing", source_path = source_path))
+  }
+
+  changes <- character(0)
+  recorded_size <- archive_info$size %||% 0
+
+  current_size <- file.size(source_path)
+  if (current_size != recorded_size) {
+    changes <- c(changes, "size changed")
+  }
+
+  if (!is.null(archive_info$source_modified)) {
+    current_mtime <- format(
+      file.mtime(source_path), "%Y-%m-%dT%H:%M:%S%z"
+    )
+    if (current_mtime != archive_info$source_modified) {
+      changes <- c(changes, "modified time changed")
+    }
+  }
+
+  if (length(changes) > 0) {
+    cli::cli_alert_warning(
+      "Archive {.file {archive_name}}: {paste(changes, collapse = ', ')}"
+    )
+    list(
+      status = "possibly_changed", source_path = source_path,
+      changes = changes
+    )
+  } else {
+    cli::cli_alert_success(
+      "Archive {.file {archive_name}}: No changes detected"
+    )
+    list(status = "unchanged", source_path = source_path)
+  }
+}
+
+
+#' Hash-based comparison of a local archive (read-only)
+#'
+#' Used by `att_compare()` for local archive sources. Hashes the archive at
+#' its `source_path` and compares to the recorded hash.
+#' @noRd
+compare_fetch_local_archive <- function(archive_name, archive_info) {
+  source_path <- archive_info$source_path
+  recorded_hash <- archive_info$sha256 %||% NA_character_
+
+  cli::cli_alert("Checking archive {.file {archive_name}}")
+
+  new_hash <- tryCatch(
+    {
+      if (is.null(source_path) || !file.exists(source_path)) {
+        cli::cli_alert_danger(
+          "Archive source not found: {.path {source_path}}"
+        )
+        NA_character_
+      } else {
+        att_hash(source_path)
+      }
+    },
+    error = function(e) {
+      cli::cli_alert_danger(
+        "Failed to hash archive {.file {archive_name}}: {conditionMessage(e)}"
+      )
+      NA_character_
+    }
+  )
+
+  status <- if (is.na(new_hash)) {
+    "error"
+  } else if (identical(recorded_hash, new_hash)) {
+    "match"
+  } else {
+    "changed"
+  }
+
+  list(
+    archive = archive_name,
+    status = status,
+    recorded_hash = recorded_hash,
+    source_hash = new_hash
+  )
+}
+
+
+#' Re-read a local archive for refresh, extract and compare individual files
+#'
+#' Used by `att_refresh()` for local archive sources. Hashes the archive at
+#' its `source_path`, and if changed, extracts and returns per-file comparison
+#' records.
+#' @noRd
+refresh_fetch_local_archive <- function(archive_name, archive_info,
+                                        file_records, tmp_dir) {
+  source_path <- archive_info$source_path
+  recorded_hash <- archive_info$sha256 %||% NA_character_
+
+  cli::cli_alert("Checking archive {.file {archive_name}}")
+
+  # Read failed — mark all files as error
+  if (is.null(source_path) || !file.exists(source_path)) {
+    cli::cli_alert_danger(
+      "Archive source not found: {.path {source_path}}"
+    )
+    error_entries <- lapply(names(file_records), function(fname) {
+      list(
+        file = fname,
+        status = "error",
+        old_hash = file_records[[fname]]$sha256 %||% NA_character_,
+        new_hash = NA_character_,
+        old_size = as.numeric(file_records[[fname]]$size %||% NA_real_),
+        new_size = NA_real_,
+        location = file_records[[fname]]$location %||% "root",
+        tmp_file = NA_character_
+      )
+    })
+    return(list(
+      archive_hash = NA_character_,
+      archive_changed = NA,
+      files = error_entries
+    ))
+  }
+
+  new_hash <- att_hash(source_path)
+  archive_changed <- !identical(recorded_hash, new_hash)
+
+  # Archive unchanged — all files unchanged
+  if (!archive_changed) {
+    unchanged_entries <- lapply(names(file_records), function(fname) {
+      list(
+        file = fname,
+        status = "unchanged",
+        old_hash = file_records[[fname]]$sha256 %||% NA_character_,
+        new_hash = file_records[[fname]]$sha256 %||% NA_character_,
+        old_size = as.numeric(file_records[[fname]]$size %||% NA_real_),
+        new_size = as.numeric(file_records[[fname]]$size %||% NA_real_),
+        location = file_records[[fname]]$location %||% "root",
+        tmp_file = NA_character_
+      )
+    })
+    return(list(
+      archive_hash = new_hash,
+      archive_changed = FALSE,
+      files = unchanged_entries
+    ))
+  }
+
+  # Archive changed — extract and compare individual files
+  extract_dir <- file.path(tmp_dir, "extracted")
+  dir.create(extract_dir, showWarnings = FALSE)
+
+  type <- archive_type(source_path)
+  extract_archive(source_path, extract_dir, type)
+
+  extracted_files <- list.files(extract_dir, recursive = TRUE)
+  extracted_basenames <- basename(extracted_files)
+
+  file_comparisons <- lapply(names(file_records), function(fname) {
+    file_info <- file_records[[fname]]
+    old_hash <- file_info$sha256 %||% NA_character_
+    old_size <- as.numeric(file_info$size %||% NA_real_)
+
+    match_idx <- which(extracted_basenames == fname)
+
+    if (length(match_idx) == 0) {
+      cli::cli_alert_warning(
+        "{.file {fname}}: no longer present in archive"
+      )
+      return(list(
+        file = fname, status = "error",
+        old_hash = old_hash, new_hash = NA_character_,
+        old_size = old_size, new_size = NA_real_,
+        location = file_info$location %||% "root",
+        tmp_file = NA_character_
+      ))
+    }
+
+    tmp_file <- file.path(extract_dir, extracted_files[match_idx[1]])
+    new_hash <- att_hash(tmp_file)
+    new_size <- file.size(tmp_file)
+    status <- if (identical(old_hash, new_hash)) "unchanged" else "changed"
+
+    list(
+      file = fname, status = status,
+      old_hash = old_hash, new_hash = new_hash,
+      old_size = old_size, new_size = new_size,
+      location = file_info$location %||% "root",
+      tmp_file = tmp_file
+    )
+  })
+
+  list(
+    archive_hash = new_hash,
+    archive_changed = TRUE,
+    files = file_comparisons
+  )
 }
