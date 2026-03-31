@@ -5,6 +5,7 @@
 .positai
 AGENTS.md
 data-raw/
+data/raw/
 ..Rcheck/
 /doc/
 /Meta/
