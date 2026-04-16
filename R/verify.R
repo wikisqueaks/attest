@@ -24,6 +24,16 @@ att_verify <- function(source, store = NULL) {
 
   prov <- jsonlite::read_json(prov_path)
 
+  if ((prov$origin %||% "remote") == "link") {
+    cli::cli_alert_info(
+      "Source {.val {name}} is a linked source with no local files to verify."
+    )
+    return(invisible(structure(
+      list(source = name, all_ok = TRUE, files = list()),
+      class = "att_verification"
+    )))
+  }
+
   results <- list()
   all_ok <- TRUE
 

@@ -37,6 +37,13 @@ att_compare <- function(source, store = NULL) {
   origin <- prov$origin %||% "remote"
   has_archives <- !is.null(prov$archives) && length(prov$archives) > 0
 
+  if (origin == "link") {
+    cli::cli_abort(c(
+      "Source {.val {name}} is a linked source with no files to compare.",
+      "i" = "Use {.fun att_check} to verify the endpoint is still reachable."
+    ))
+  }
+
   if (length(prov$files) == 0) {
     cli::cli_alert_info("No files recorded for {.val {name}}")
     return(invisible(data.frame(

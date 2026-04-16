@@ -34,6 +34,61 @@ att_check <- function(source, store = NULL) {
   has_archives <- !is.null(prov$archives) && length(prov$archives) > 0
   origin <- prov$origin %||% "remote"
 
+  # Link sources: just check reachability of the endpoint
+  if (origin == "link") {
+    primary_url <- prov$data_urls[[1]] %||% prov$metadata_urls[[1]] %||%
+      prov$landing_url
+
+    if (is.null(primary_url)) {
+      cli::cli_alert_warning("Source {.val {name}} has no URL to check.")
+      return(invisible(structure(
+        list(source = name, endpoint = list(status = "no_url")),
+        class = "att_check"
+      )))
+    }
+
+    cli::cli_alert("Checking {.url {primary_url}}")
+    resp <- tryCatch(
+      att_request(primary_url) |>
+        httr2::req_method("HEAD") |>
+        httr2::req_perform(),
+      error = function(e) {
+        cli::cli_alert_warning(
+          "Could not reach {.url {primary_url}}: {conditionMessage(e)}"
+        )
+        NULL
+      }
+    )
+
+    if (is.null(resp)) {
+      result <- list(status = "unreachable", url = primary_url)
+      cli::cli_alert_danger("Endpoint unreachable")
+    } else {
+      status_code <- httr2::resp_status(resp)
+      result <- list(status = "reachable", url = primary_url,
+                     http_status = status_code)
+
+      recorded_ct <- prov$endpoint$http_content_type
+      current_ct <- httr2::resp_header(resp, "Content-Type")
+      if (!is.null(recorded_ct) && !is.null(current_ct) &&
+          current_ct != recorded_ct) {
+        result$content_type_changed <- TRUE
+        result$recorded_content_type <- recorded_ct
+        result$current_content_type <- current_ct
+        cli::cli_alert_warning(
+          "Endpoint reachable (HTTP {status_code}), content type changed"
+        )
+      } else {
+        cli::cli_alert_success("Endpoint reachable (HTTP {status_code})")
+      }
+    }
+
+    return(invisible(structure(
+      list(source = name, endpoint = result),
+      class = "att_check"
+    )))
+  }
+
   results <- list()
   archive_results <- list()
 

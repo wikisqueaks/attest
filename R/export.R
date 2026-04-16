@@ -84,13 +84,28 @@ export_source_entry <- function(prov) {
     metadata = prov$metadata
   )
 
-  if (origin == "remote") {
+  if (origin == "link") {
+    entry <- c(entry, export_link_source(prov))
+  } else if (origin == "remote") {
     entry <- c(entry, export_remote_source(prov))
   } else {
     entry <- c(entry, export_local_source(prov))
   }
 
   entry
+}
+
+
+#' Extract URL mappings from a link provenance record
+#' @noRd
+export_link_source <- function(prov) {
+  result <- list(
+    data_urls = prov$data_urls,
+    metadata_urls = prov$metadata_urls
+  )
+  if (length(result$data_urls) == 0) result$data_urls <- NULL
+  if (length(result$metadata_urls) == 0) result$metadata_urls <- NULL
+  result
 }
 
 

@@ -119,7 +119,7 @@ generate_source_block <- function(entry) {
     args[["landing_url"]] <- deparse(entry$landing_url)
   }
 
-  if (origin == "remote") {
+  if (origin %in% c("remote", "link")) {
     if (!is.null(entry$data_urls)) {
       args[["data_urls"]] <- deparse_named_vector(entry$data_urls)
     }
@@ -153,7 +153,9 @@ generate_source_block <- function(entry) {
   )
 
   # Format the acquisition call
-  if (origin == "remote") {
+  if (origin == "link") {
+    acquire_call <- "att_link(src)"
+  } else if (origin == "remote") {
     if (!is.null(entry$classify)) {
       classify_str <- deparse_classify(entry$classify)
       acquire_call <- paste0("att_download(src, classify = ", classify_str, ")")
@@ -219,7 +221,36 @@ execute_source_entry <- function(entry, store) {
     return("skipped")
   }
 
-  if (origin == "remote") {
+  if (origin == "link") {
+    data_urls <- unlist_manifest(entry$data_urls)
+    metadata_urls <- unlist_manifest(entry$metadata_urls)
+
+    src <- att_source(
+      name = name,
+      landing_url = entry$landing_url,
+      data_urls = data_urls,
+      metadata_urls = metadata_urls,
+      title = meta$title,
+      publisher = meta$publisher,
+      year = meta$year,
+      author = meta$author,
+      format = meta$format,
+      description = meta$description
+    )
+
+    tryCatch(
+      {
+        att_link(src, store = store)
+        "ok"
+      },
+      error = function(e) {
+        cli::cli_alert_danger(
+          "Failed to link {.val {name}}: {conditionMessage(e)}"
+        )
+        "failed"
+      }
+    )
+  } else if (origin == "remote") {
     data_urls <- unlist_manifest(entry$data_urls)
     metadata_urls <- unlist_manifest(entry$metadata_urls)
     classify <- unlist_classify(entry$classify)
