@@ -68,7 +68,9 @@ is_known_extension <- function(filename) {
     # Geospatial
     "geojson", "gpkg", "kml", "gml", "tif", "tiff", "gpx",
     # Other common data
-    "json", "rds", "rda", "rdata", "sav", "dta", "sqlite", "gdb"
+    "json", "rds", "rda", "rdata", "sav", "dta", "sqlite"
+    # Note: .gdb (File Geodatabase) is a directory format, not a file —
+    # it is handled separately by find_dir_format_dirs()
   )
 
   known_metadata <- "pdf"
@@ -263,6 +265,25 @@ classify_by_extension <- function(files, classify) {
 }
 
 
+#' Find directory-format data containers after archive extraction
+#'
+#' Some geospatial formats are directories, not files (e.g., ESRI File
+#' Geodatabases). When present inside a zip, `list.files(recursive = TRUE)`
+#' would descend into them and produce hundreds of opaque internal files.
+#' This function identifies those directories so they can be treated as
+#' atomic units — copied whole and recorded as a single provenance entry.
+#' @param exdir Path to the extraction directory.
+#' @return Character vector of relative paths (from `exdir`) to
+#'   directory-format containers, e.g. `"mydata.gdb"`.
+#' @noRd
+find_dir_format_dirs <- function(exdir) {
+  dir_format_exts <- c("gdb")
+  all_dirs <- list.dirs(exdir, recursive = TRUE, full.names = FALSE)
+  all_dirs <- all_dirs[nchar(all_dirs) > 0]
+  all_dirs[tolower(tools::file_ext(basename(all_dirs))) %in% dir_format_exts]
+}
+
+
 #' Download, extract, classify, and place files from an archive URL
 #'
 #' @param url URL of the archive (`.zip`, `.tar.gz`, or `.tgz`).
@@ -343,6 +364,16 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
     ))
   }
 
+  # Detect directory-format containers (e.g., .gdb) and exclude their
+  # contents from per-file classification — they'll be placed as a unit
+  dir_fmt_dirs <- find_dir_format_dirs(tmp_dir)
+  if (length(dir_fmt_dirs) > 0) {
+    in_dir_fmt <- vapply(rel_paths, function(p) {
+      any(startsWith(p, paste0(dir_fmt_dirs, "/")))
+    }, logical(1))
+    rel_paths <- rel_paths[!in_dir_fmt]
+  }
+
   # Use basenames for placement; check for collisions
   basenames <- basename(rel_paths)
   if (anyDuplicated(basenames)) {
@@ -353,14 +384,14 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
     basenames <- rel_paths
   }
 
+  n_total <- length(rel_paths) + length(dir_fmt_dirs)
   cli::cli_alert_success(
-    "Extracted {length(rel_paths)} file{?s} from {.file {archive_name}}"
+    "Extracted {n_total} item{?s} from {.file {archive_name}}"
   )
 
-  # Classify
+  # Classify and place regular files
   roles <- classify_extracted_files(basenames, classify = classify)
 
-  # Place files and record provenance
   files_record <- list()
   failures <- character(0)
 
@@ -403,6 +434,38 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
           error = conditionMessage(e)
         )
         failures <<- c(failures, fname)
+      }
+    )
+  }
+
+  # Place directory-format containers as atomic units (not hashed)
+  for (dir_rel in dir_fmt_dirs) {
+    dir_name <- basename(dir_rel)
+    src_dir <- file.path(tmp_dir, dir_rel)
+    tryCatch(
+      {
+        file.copy(src_dir, source_dir, recursive = TRUE)
+        cli::cli_alert_info(
+          "{.file {dir_name}}: placed as directory unit (not hashed)"
+        )
+        files_record[[dir_name]] <- list(
+          extracted_from = archive_name,
+          type = "directory",
+          location = "root",
+          error = NULL
+        )
+      },
+      error = function(e) {
+        cli::cli_alert_danger(
+          "Failed to place {.file {dir_name}}: {conditionMessage(e)}"
+        )
+        files_record[[dir_name]] <<- list(
+          extracted_from = archive_name,
+          type = "directory",
+          location = "root",
+          error = conditionMessage(e)
+        )
+        failures <<- c(failures, dir_name)
       }
     )
   }
@@ -481,6 +544,16 @@ process_archive_path <- function(path, archive_name, source_dir, metadata_dir,
     ))
   }
 
+  # Detect directory-format containers (e.g., .gdb) and exclude their
+  # contents from per-file classification — they'll be placed as a unit
+  dir_fmt_dirs <- find_dir_format_dirs(tmp_dir)
+  if (length(dir_fmt_dirs) > 0) {
+    in_dir_fmt <- vapply(rel_paths, function(p) {
+      any(startsWith(p, paste0(dir_fmt_dirs, "/")))
+    }, logical(1))
+    rel_paths <- rel_paths[!in_dir_fmt]
+  }
+
   # Use basenames for placement; check for collisions
   basenames <- basename(rel_paths)
   if (anyDuplicated(basenames)) {
@@ -491,14 +564,14 @@ process_archive_path <- function(path, archive_name, source_dir, metadata_dir,
     basenames <- rel_paths
   }
 
+  n_total <- length(rel_paths) + length(dir_fmt_dirs)
   cli::cli_alert_success(
-    "Extracted {length(rel_paths)} file{?s} from {.file {archive_name}}"
+    "Extracted {n_total} item{?s} from {.file {archive_name}}"
   )
 
-  # Classify
+  # Classify and place regular files
   roles <- classify_extracted_files(basenames, classify = classify)
 
-  # Place files and record provenance
   files_record <- list()
   failures <- character(0)
 
@@ -541,6 +614,38 @@ process_archive_path <- function(path, archive_name, source_dir, metadata_dir,
           error = conditionMessage(e)
         )
         failures <<- c(failures, fname)
+      }
+    )
+  }
+
+  # Place directory-format containers as atomic units (not hashed)
+  for (dir_rel in dir_fmt_dirs) {
+    dir_name <- basename(dir_rel)
+    src_dir <- file.path(tmp_dir, dir_rel)
+    tryCatch(
+      {
+        file.copy(src_dir, source_dir, recursive = TRUE)
+        cli::cli_alert_info(
+          "{.file {dir_name}}: placed as directory unit (not hashed)"
+        )
+        files_record[[dir_name]] <- list(
+          extracted_from = archive_name,
+          type = "directory",
+          location = "root",
+          error = NULL
+        )
+      },
+      error = function(e) {
+        cli::cli_alert_danger(
+          "Failed to place {.file {dir_name}}: {conditionMessage(e)}"
+        )
+        files_record[[dir_name]] <<- list(
+          extracted_from = archive_name,
+          type = "directory",
+          location = "root",
+          error = conditionMessage(e)
+        )
+        failures <<- c(failures, dir_name)
       }
     )
   }

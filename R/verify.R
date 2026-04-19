@@ -39,8 +39,16 @@ att_verify <- function(source, store = NULL) {
 
   for (fname in names(prov$files)) {
     file_info <- prov$files[[fname]]
-    file_path <- resolve_file_path(store, name, fname, file_info)
     recorded_hash <- file_info$sha256
+
+    # Directory-format entries (e.g., .gdb) have no hash; skip silently
+    if (isTRUE(file_info$type == "directory")) {
+      results[[fname]] <- list(status = "skipped", expected = NULL, actual = NULL)
+      cli::cli_alert_info("{.file {fname}}: skipped (directory format)")
+      next
+    }
+
+    file_path <- resolve_file_path(store, name, fname, file_info)
 
     if (!file.exists(file_path)) {
       results[[fname]] <- list(

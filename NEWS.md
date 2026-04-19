@@ -1,5 +1,7 @@
 # attest (development version)
 
+* `att_download()` and `att_register()` now correctly handle File Geodatabases (`.gdb`) inside zip archives. A `.gdb` is a directory format — previously, extracting one would register every internal binary file individually as a tracked entry. Now the entire `.gdb` directory is copied as a single unit and recorded as one provenance entry (with `type = "directory"`). `att_verify()` skips directory-format entries gracefully.
+
 # attest 0.4.0
 
 * `att_link()` registers a remote data source — a REST API, data portal, or any live URL — without downloading any files. Creates the standard store directory structure, writes a `provenance.json` record with `origin = "link"`, and generates a `.url` Internet Shortcut for easy browser access. An HTTP HEAD request is attempted to capture the endpoint's content type and status at link time. `att_check()` reports endpoint reachability for linked sources; `att_verify()` returns gracefully (nothing to verify); `att_refresh()` and `att_compare()` direct the user to `att_check()`. `att_export()` and `att_import()` support linked sources in manifest round-trips.

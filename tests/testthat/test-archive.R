@@ -242,6 +242,116 @@ test_that("classify_extracted_files auto-classifies mixed known data and metadat
   expect_equal(unname(result), c("data", "metadata"))
 })
 
+# -- find_dir_format_dirs -----------------------------------------------------
+
+test_that("find_dir_format_dirs detects .gdb directories", {
+  tmp <- withr::local_tempdir()
+  dir.create(file.path(tmp, "mydata.gdb"))
+  writeLines("x", file.path(tmp, "mydata.gdb", "internal.gdbtable"))
+  dir.create(file.path(tmp, "normaldir"))
+  writeLines("y", file.path(tmp, "normaldir", "file.csv"))
+
+  result <- find_dir_format_dirs(tmp)
+  expect_equal(result, "mydata.gdb")
+})
+
+test_that("find_dir_format_dirs returns empty when no dir-format dirs present", {
+  tmp <- withr::local_tempdir()
+  writeLines("a,b\n1,2", file.path(tmp, "data.csv"))
+  dir.create(file.path(tmp, "subdir"))
+  writeLines("x", file.path(tmp, "subdir", "other.csv"))
+
+  expect_equal(find_dir_format_dirs(tmp), character(0))
+})
+
+test_that("find_dir_format_dirs is case-insensitive", {
+  tmp <- withr::local_tempdir()
+  dir.create(file.path(tmp, "mydata.GDB"))
+  writeLines("x", file.path(tmp, "mydata.GDB", "file.gdbtable"))
+
+  result <- find_dir_format_dirs(tmp)
+  expect_equal(result, "mydata.GDB")
+})
+
+
+# -- process_archive_path with .gdb directories -------------------------------
+
+#' Create a zip containing a fake .gdb directory and a regular CSV
+#' @noRd
+make_gdb_zip <- function(dir) {
+  gdb_dir <- file.path(dir, "src", "mydata.gdb")
+  dir.create(gdb_dir, recursive = TRUE)
+  writeLines("fake binary 1", file.path(gdb_dir, "a00000001.gdbtable"))
+  writeLines("fake binary 2", file.path(gdb_dir, "a00000001.gdbindexes"))
+  writeLines("fake binary 3", file.path(gdb_dir, "timestamps"))
+  writeLines("col1,col2\n1,2", file.path(dir, "src", "readme.csv"))
+
+  zip_path <- file.path(dir, "data.zip")
+  withr::with_dir(file.path(dir, "src"), {
+    utils::zip(zip_path, c(
+      "mydata.gdb/a00000001.gdbtable",
+      "mydata.gdb/a00000001.gdbindexes",
+      "mydata.gdb/timestamps",
+      "readme.csv"
+    ))
+  })
+  zip_path
+}
+
+test_that("process_archive_path treats .gdb as single entry, not individual files", {
+  tmp <- withr::local_tempdir()
+  zip_path <- make_gdb_zip(tmp)
+
+  source_dir <- file.path(tmp, "store", "test-source")
+  metadata_dir <- file.path(source_dir, "metadata")
+  dir.create(metadata_dir, recursive = TRUE)
+
+  result <- process_archive_path(zip_path, "data.zip", source_dir, metadata_dir)
+
+  # Two entries: the .gdb dir + readme.csv; NOT 3 individual gdb internals
+  expect_equal(length(result$files), 2)
+  expect_true("mydata.gdb" %in% names(result$files))
+  expect_true("readme.csv" %in% names(result$files))
+
+  # GDB entry is marked as directory type with no hash
+  expect_equal(result$files[["mydata.gdb"]]$type, "directory")
+  expect_null(result$files[["mydata.gdb"]]$sha256)
+  expect_equal(result$files[["mydata.gdb"]]$location, "root")
+
+  # GDB directory was copied to source_dir
+  expect_true(dir.exists(file.path(source_dir, "mydata.gdb")))
+  expect_true(file.exists(
+    file.path(source_dir, "mydata.gdb", "a00000001.gdbtable")
+  ))
+})
+
+test_that("process_archive_path with only a .gdb produces one entry", {
+  tmp <- withr::local_tempdir()
+  gdb_dir <- file.path(tmp, "src", "layers.gdb")
+  dir.create(gdb_dir, recursive = TRUE)
+  writeLines("data", file.path(gdb_dir, "a00000001.gdbtable"))
+  writeLines("data", file.path(gdb_dir, "a00000002.gdbtable"))
+
+  zip_path <- file.path(tmp, "layers.zip")
+  withr::with_dir(file.path(tmp, "src"), {
+    utils::zip(zip_path, c(
+      "layers.gdb/a00000001.gdbtable",
+      "layers.gdb/a00000002.gdbtable"
+    ))
+  })
+
+  source_dir <- file.path(tmp, "store", "my-source")
+  metadata_dir <- file.path(source_dir, "metadata")
+  dir.create(metadata_dir, recursive = TRUE)
+
+  result <- process_archive_path(zip_path, "layers.zip", source_dir, metadata_dir)
+
+  expect_equal(length(result$files), 1)
+  expect_true("layers.gdb" %in% names(result$files))
+  expect_null(result$files[["layers.gdb"]]$sha256)
+})
+
+
 # -- process_archive_url (integration) ---------------------------------------
 
 test_that("process_archive_url downloads and extracts a zip", {
