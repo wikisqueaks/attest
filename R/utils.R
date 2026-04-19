@@ -27,10 +27,16 @@ timestamp_now <- function() {
 att_request <- function(url) {
   httr2::request(url) |>
     httr2::req_user_agent("attest (R package; data provenance tracking)") |>
-    httr2::req_timeout(seconds = 300) |>
+    # Stall timeout instead of hard timeout: abort if speed drops below
+    # 1 KB/s for 60 s. Allows arbitrarily large files to download as long
+    # as progress is being made, while still catching dead connections.
     # Force HTTP/1.1 to avoid HTTP/2 framing errors with libcurl + Schannel
-    # on Windows (affects api.gbif.org, www.canada.ca, and others)
-    httr2::req_options(http_version = 2L) |>
+    # on Windows (affects api.gbif.org, www.canada.ca, and others).
+    httr2::req_options(
+      low_speed_time = 60L,
+      low_speed_limit = 1000L,
+      http_version = 2L
+    ) |>
     httr2::req_progress()
 }
 
