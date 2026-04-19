@@ -28,6 +28,9 @@ att_request <- function(url) {
   httr2::request(url) |>
     httr2::req_user_agent("attest (R package; data provenance tracking)") |>
     httr2::req_timeout(seconds = 300) |>
+    # Force HTTP/1.1 to avoid HTTP/2 framing errors with libcurl + Schannel
+    # on Windows (affects api.gbif.org, www.canada.ca, and others)
+    httr2::req_options(http_version = 2L) |>
     httr2::req_progress()
 }
 
