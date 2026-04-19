@@ -50,20 +50,15 @@ att_request <- function(url) {
 #' @noRd
 stream_download <- function(url, dest) {
   bytes <- 0L
-  chunk_size <- 256L * 1024L  # 256 KB
+  mb_str <- "0.0"
+  start <- proc.time()[["elapsed"]]
 
   bar <- cli::cli_progress_bar(
     total = NA,
-    format = paste0(
-      "{cli::pb_spin} {format(round(pb_current / 1024 / 1024, 1), nsmall = 1)} MB",
-      " downloaded | {cli::pb_elapsed}"
-    ),
-    format_done = paste0(
-      "{cli::pb_tick} {format(round(pb_current / 1024 / 1024, 1), nsmall = 1)} MB",
-      " downloaded in {cli::pb_elapsed}"
-    ),
-    clear = FALSE,
-    .auto_close = FALSE
+    format = "{cli::pb_spin} {mb_str} MB downloaded",
+    clear = TRUE,
+    .auto_close = FALSE,
+    .envir = environment()
   )
 
   con <- file(dest, "wb")
@@ -71,8 +66,9 @@ stream_download <- function(url, dest) {
 
   resp <- att_request(url) |> httr2::req_perform_connection()
   on.exit({
-    close(resp)
+    elapsed <- round(proc.time()[["elapsed"]] - start)
     cli::cli_progress_done(id = bar)
+    cli::cli_alert_success("Downloaded {mb_str} MB in {elapsed}s")
   }, add = TRUE)
 
   while (!httr2::resp_stream_is_complete(resp)) {
@@ -80,7 +76,8 @@ stream_download <- function(url, dest) {
     if (length(chunk) == 0L) break
     writeBin(chunk, con)
     bytes <- bytes + length(chunk)
-    cli::cli_progress_update(set = bytes, id = bar)
+    mb_str <- format(round(bytes / 1024 / 1024, 1), nsmall = 1)
+    cli::cli_progress_update(id = bar, .envir = environment())
   }
 
   resp
