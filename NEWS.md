@@ -1,7 +1,8 @@
 # attest (development version)
 
-* `att_link()` registers a remote data source — a REST API, data portal, or any live URL — without downloading any files. Creates the standard store directory structure, writes a `provenance.json` record with `origin = "link"`, and generates a `.url` Internet Shortcut for easy browser access. An HTTP HEAD request is attempted to capture the endpoint's content type and status at link time. `att_check()` reports endpoint reachability for linked sources; `att_verify()` returns gracefully (nothing to verify); `att_refresh()` and `att_compare()` direct the user to `att_check()`. `att_export()` and `att_import()` support linked sources in manifest round-trips.
+# attest 0.4.0
 
+* `att_link()` registers a remote data source — a REST API, data portal, or any live URL — without downloading any files. Creates the standard store directory structure, writes a `provenance.json` record with `origin = "link"`, and generates a `.url` Internet Shortcut for easy browser access. An HTTP HEAD request is attempted to capture the endpoint's content type and status at link time. `att_check()` reports endpoint reachability for linked sources; `att_verify()` returns gracefully (nothing to verify); `att_refresh()` and `att_compare()` direct the user to `att_check()`. `att_export()` and `att_import()` support linked sources in manifest round-trips.
 * `att_export()` writes a portable JSON manifest of all sources in the store — capturing URLs, local paths, metadata, and archive classifications. The manifest defaults to `attest-manifest.json` in the working directory and is intended to be version-controlled.
 * `att_import()` reads an `att_export()` manifest, generates a `get-data.R` script with explicit `att_source()`/`att_download()`/`att_register()` calls, and executes it. The script is kept as a readable record of data acquisition. Existing sources are skipped; missing local paths are reported as failures.
 * `att_register()` now supports local `.zip`, `.tar.gz`, and `.tgz` archives. Archives are automatically detected, extracted, and classified just like remote archives in `att_download()`. The `classify` parameter controls non-interactive file classification. Downstream functions (`att_check()`, `att_compare()`, `att_refresh()`) work with local archive sources. `att_export()` captures archive paths and classifications for import.
@@ -9,6 +10,7 @@
 * `att_add_metadata()` downloads additional metadata files (codebooks, schemas, documentation) to an existing source without re-downloading data files. Provenance is updated in place.
 * `att_cite()` now generates a `data-sources.md` file alongside `data-sources.bib`, containing APA-style plain-text citations sorted alphabetically by author. The markdown file is kept in sync automatically when citations are added, updated, or removed.
 * `att_download()` now supports `.tar.gz` and `.tgz` archives in addition to `.zip`. Archive detection, extraction, classification, and all downstream operations (`att_check()`, `att_compare()`, `att_refresh()`) work with both formats.
+* Fixed HTTP/2 framing errors on Windows (libcurl + Schannel) for servers such as `api.gbif.org` and `www.canada.ca` by forcing HTTP/1.1 in all requests.
 
 # attest 0.3.1
 * `att_download()` now auto-classifies extracted archive files without prompting when all files have well-known extensions (e.g., shapefile bundles, CSVs, GeoJSON). The interactive classification prompt only appears when the archive contains files with ambiguous extensions.
