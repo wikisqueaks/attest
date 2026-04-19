@@ -36,8 +36,54 @@ att_request <- function(url) {
       low_speed_time = 60L,
       low_speed_limit = 1000L,
       http_version = 2L
-    ) |>
-    httr2::req_progress()
+    )
+}
+
+
+#' Stream a URL to a file with a live CLI progress bar.
+#'
+#' Uses req_perform_connection() so chunks are read in R, allowing the
+#' progress bar to update in real time (unlike req_progress() / req_perform()
+#' which only flush at the end in RStudio).
+#'
+#' Returns the httr2 response object (headers still accessible).
+#' @noRd
+stream_download <- function(url, dest) {
+  bytes <- 0L
+  chunk_size <- 256L * 1024L  # 256 KB
+
+  bar <- cli::cli_progress_bar(
+    total = NA,
+    format = paste0(
+      "{cli::pb_spin} {format(round(pb_current / 1024 / 1024, 1), nsmall = 1)} MB",
+      " downloaded | {cli::pb_elapsed}"
+    ),
+    format_done = paste0(
+      "{cli::pb_tick} {format(round(pb_current / 1024 / 1024, 1), nsmall = 1)} MB",
+      " downloaded in {cli::pb_elapsed}"
+    ),
+    clear = FALSE,
+    .auto_close = FALSE
+  )
+
+  con <- file(dest, "wb")
+  on.exit(try(close(con), silent = TRUE), add = TRUE)
+
+  resp <- att_request(url) |> httr2::req_perform_connection()
+  on.exit({
+    close(resp)
+    cli::cli_progress_done(id = bar)
+  }, add = TRUE)
+
+  while (!httr2::resp_stream_is_complete(resp)) {
+    chunk <- httr2::resp_stream_raw(resp, kb = 256)
+    if (length(chunk) == 0L) break
+    writeBin(chunk, con)
+    bytes <- bytes + length(chunk)
+    cli::cli_progress_update(set = bytes, id = bar)
+  }
+
+  resp
 }
 
 #' Download a single file and record metadata
@@ -62,8 +108,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
 
   tryCatch(
     {
-      resp <- att_request(url) |>
-        httr2::req_perform(path = dest)
+      resp <- stream_download(url, dest)
 
       list(
         url = url,

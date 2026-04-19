@@ -285,7 +285,7 @@ process_archive_url <- function(url, archive_name, source_dir, metadata_dir,
 
   archive_record <- tryCatch(
     {
-      resp <- att_request(url) |> httr2::req_perform(path = tmp_archive)
+      resp <- stream_download(url, tmp_archive)
 
       list(
         url = url,
@@ -569,7 +569,7 @@ compare_fetch_archive <- function(archive_name, archive_info) {
 
   new_hash <- tryCatch(
     {
-      att_request(url) |> httr2::req_perform(path = tmp_archive)
+      stream_download(url, tmp_archive)
       att_hash(tmp_archive)
     },
     error = function(e) {
@@ -622,7 +622,7 @@ refresh_fetch_archive <- function(archive_name, archive_info, file_records,
 
   download_result <- tryCatch(
     {
-      resp <- att_request(url) |> httr2::req_perform(path = tmp_archive)
+      resp <- stream_download(url, tmp_archive)
       list(
         hash = att_hash(tmp_archive),
         http_etag = httr2::resp_header(resp, "ETag"),
