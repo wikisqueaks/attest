@@ -57,9 +57,7 @@ download_file <- function(url, dest, overwrite = FALSE) {
   tryCatch(
     {
       resp <- att_request(url) |>
-        httr2::req_perform()
-
-      writeBin(httr2::resp_body_raw(resp), dest)
+        httr2::req_perform(path = dest)
 
       list(
         url = url,
@@ -183,8 +181,7 @@ refresh_fetch_remote <- function(fname, file_info, tmp_file) {
 
   new_hash <- tryCatch(
     {
-      resp <- att_request(url) |> httr2::req_perform()
-      writeBin(httr2::resp_body_raw(resp), tmp_file)
+      att_request(url) |> httr2::req_perform(path = tmp_file)
       att_hash(tmp_file)
     },
     error = function(e) {
@@ -280,8 +277,7 @@ compare_fetch_remote <- function(fname, file_info, tmp) {
   cli::cli_alert("Fetching {.file {fname}}")
   tryCatch(
     {
-      resp <- att_request(url) |> httr2::req_perform()
-      writeBin(httr2::resp_body_raw(resp), tmp)
+      att_request(url) |> httr2::req_perform(path = tmp)
       att_hash(tmp)
     },
     error = function(e) {
