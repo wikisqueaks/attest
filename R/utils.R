@@ -22,21 +22,14 @@ timestamp_now <- function() {
   format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
 }
 
-#' Build a base httr2 request with user-agent and timeout
+#' Build a base httr2 request with user-agent
 #' @noRd
 att_request <- function(url) {
   httr2::request(url) |>
     httr2::req_user_agent("attest (R package; data provenance tracking)") |>
-    # Stall timeout instead of hard timeout: abort if speed drops below
-    # 1 KB/s for 60 s. Allows arbitrarily large files to download as long
-    # as progress is being made, while still catching dead connections.
     # Force HTTP/1.1 to avoid HTTP/2 framing errors with libcurl + Schannel
     # on Windows (affects api.gbif.org, www.canada.ca, and others).
-    httr2::req_options(
-      low_speed_time = 60L,
-      low_speed_limit = 1000L,
-      http_version = 2L
-    )
+    httr2::req_options(http_version = 2L)
 }
 
 
@@ -49,13 +42,13 @@ att_request <- function(url) {
 #' Returns the httr2 response object (headers still accessible).
 #' @noRd
 stream_download <- function(url, dest) {
-  bytes <- 0L
-  mb_str <- "0.0"
+  bytes <- 0
+  size_str <- "0.0 MB"
   start <- proc.time()[["elapsed"]]
 
   bar <- cli::cli_progress_bar(
     total = NA,
-    format = "{cli::pb_spin} {mb_str} MB downloaded",
+    format = "{cli::pb_spin} {size_str} downloaded",
     clear = TRUE,
     .auto_close = FALSE,
     .envir = environment()
@@ -68,15 +61,19 @@ stream_download <- function(url, dest) {
   on.exit({
     elapsed <- round(proc.time()[["elapsed"]] - start)
     cli::cli_progress_done(id = bar)
-    cli::cli_alert_success("Downloaded {mb_str} MB in {elapsed}s")
+    cli::cli_alert_success("Downloaded {size_str} in {elapsed}s")
   }, add = TRUE)
 
   while (!httr2::resp_stream_is_complete(resp)) {
     chunk <- httr2::resp_stream_raw(resp, kb = 256)
     if (length(chunk) == 0L) break
     writeBin(chunk, con)
-    bytes <- bytes + length(chunk)
-    mb_str <- format(round(bytes / 1024 / 1024, 1), nsmall = 1)
+    bytes <- bytes + as.numeric(length(chunk))
+    size_str <- if (bytes >= 1024^3) {
+      paste(format(round(bytes / 1024^3, 2), nsmall = 2), "GB")
+    } else {
+      paste(format(round(bytes / 1024^2, 1), nsmall = 1), "MB")
+    }
     cli::cli_progress_update(id = bar, .envir = environment())
   }
 

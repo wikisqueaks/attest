@@ -1,5 +1,7 @@
 # attest (development version)
 
+* Fixed download progress tracking for large files: the byte counter now uses a double to avoid integer overflow, and the display switches from MB to GB once the download exceeds 1 GB.
+* Removed the stall-based download timeout (`low_speed_time`/`low_speed_limit`) from all HTTP requests. Downloads now run without a speed-based timeout, preventing premature cancellation of large or slow files.
 * `att_download()` and `att_register()` now correctly handle File Geodatabases (`.gdb`) inside zip archives. A `.gdb` is a directory format — previously, extracting one would register every internal binary file individually as a tracked entry. Now the entire `.gdb` directory is copied as a single unit and recorded as one provenance entry (with `type = "directory"`). `att_verify()` skips directory-format entries gracefully.
 
 # attest 0.4.0
