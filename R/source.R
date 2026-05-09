@@ -24,7 +24,9 @@
 #' @param title Title of the data source (for citation).
 #' @param publisher Publisher or institution name (for citation).
 #' @param year Publication or release year (for citation).
-#' @param author Author name (for citation). If not set, `publisher` is used.
+#' @param author Author name(s) for citation. A single string or a character
+#'   vector of names (e.g., `c("Smith, Jane", "Doe, John")`), which are joined
+#'   with `" and "` in the BibTeX output. If not set, `publisher` is used.
 #' @param format Data format description (e.g., `"CSV"`, `"Shapefile"`,
 #'   `"File Geodatabase"`). Used in APA-style citations as
 #'   `[Data set; Format]`.
@@ -119,6 +121,7 @@ print.att_source <- function(x, ...) {
   if (length(x$metadata) > 0) {
     for (nm in names(x$metadata)) {
       val <- x$metadata[[nm]]
+      if (length(val) > 1) val <- paste(val, collapse = " and ")
       if (nchar(val) > 60) val <- paste0(substr(val, 1, 57), "...")
       cli::cli_bullets(c(" " = "{.field {nm}}: {val}"))
     }

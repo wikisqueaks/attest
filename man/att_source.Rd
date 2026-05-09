@@ -51,7 +51,9 @@ filenames, same as \code{data_paths}. Used with \code{\link[=att_register]{att_r
 
 \item{year}{Publication or release year (for citation).}
 
-\item{author}{Author name (for citation). If not set, \code{publisher} is used.}
+\item{author}{Author name(s) for citation. A single string or a character
+vector of names (e.g., \code{c("Smith, Jane", "Doe, John")}), which are joined
+with \code{" and "} in the BibTeX output. If not set, \code{publisher} is used.}
 
 \item{format}{Data format description (e.g., \code{"CSV"}, \code{"Shapefile"},
 \code{"File Geodatabase"}). Used in APA-style citations as

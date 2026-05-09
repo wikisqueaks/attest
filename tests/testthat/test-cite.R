@@ -70,6 +70,37 @@ test_that("att_cite uses custom key when provided", {
   expect_match(result, "@misc\\{my_custom_key,")
 })
 
+# -- Multiple authors ----------------------------------------------------------
+
+test_that("att_cite joins character vector author with ' and '", {
+  tmp <- withr::local_tempdir()
+  src <- att_source(
+    name = "multi-author",
+    landing_url = "https://example.com",
+    data_urls = "https://example.com/data.csv",
+    title = "Multi-Author Dataset",
+    author = c("Smith, Jane", "Doe, John"),
+    year = "2025"
+  )
+  result <- att_cite(src, store = tmp, write = FALSE)
+  expect_match(result, "Smith, Jane and Doe, John")
+})
+
+test_that("att_cite handles author list from JSON round-trip", {
+  tmp <- withr::local_tempdir()
+  # Simulate what jsonlite::read_json() returns for a stored vector author
+  prov <- list(
+    metadata = list(author = list("Smith, Jane", "Doe, John"), year = "2025"),
+    landing_url = "https://example.com",
+    created = "2025-01-01T00:00:00+0000"
+  )
+  dir.create(file.path(tmp, "round-trip", "_attest"), recursive = TRUE)
+  jsonlite::write_json(prov, file.path(tmp, "round-trip", "_attest", "provenance.json"),
+                       pretty = TRUE, auto_unbox = TRUE)
+  result <- att_cite("round-trip", store = tmp, write = FALSE)
+  expect_match(result, "Smith, Jane and Doe, John")
+})
+
 # -- Markdown citation generation ----------------------------------------------
 
 test_that("att_cite generates data-sources.md alongside bib", {

@@ -55,7 +55,7 @@ att_cite <- function(source, store = NULL, key = NULL, write = TRUE) {
   }
 
   title <- meta$title %||% name
-  author <- meta$publisher %||% meta$author %||% "Unknown"
+  author <- meta$publisher %||% normalize_author(meta$author) %||% "Unknown"
   year <- meta$year %||% format(Sys.Date(), "%Y")
   url <- landing_url
 

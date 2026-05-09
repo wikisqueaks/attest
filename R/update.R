@@ -13,8 +13,9 @@
 #' @param landing_url New landing URL for the source.
 #' @param title New title.
 #' @param publisher New publisher name.
-#' @param author New author name. If not set, `publisher` is used for
-#'   citations.
+#' @param author New author name(s). A single string or a character vector
+#'   (e.g., `c("Smith, Jane", "Doe, John")`), joined with `" and "` in BibTeX
+#'   output. If not set, `publisher` is used for citations.
 #' @param year New publication year.
 #' @param format New data format description (e.g., `"CSV"`, `"Shapefile"`).
 #' @return The updated provenance record, invisibly.

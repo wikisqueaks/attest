@@ -383,6 +383,18 @@ derive_filename <- function(urls, index) {
   basename(clean_url)
 }
 
+#' Normalise the author field to a single BibTeX-ready string
+#'
+#' Accepts a scalar string, a character vector (joined with " and "), or a list
+#' (as returned by jsonlite::read_json() for a JSON array). Returns NULL when
+#' given NULL or an empty value.
+#' @noRd
+normalize_author <- function(author) {
+  if (is.null(author) || length(author) == 0) return(NULL)
+  if (is.list(author)) author <- unlist(author, use.names = FALSE)
+  paste(author, collapse = " and ")
+}
+
 #' Build a BibTeX entry from named fields
 #' @noRd
 build_bib_entry <- function(key, type = "misc", fields) {
@@ -459,7 +471,7 @@ parse_bib_file <- function(bib_path) {
 #' Format a parsed BibTeX entry as an APA-style markdown citation
 #' @noRd
 format_markdown_citation <- function(entry) {
-  author <- entry$author %||% "Unknown"
+  author <- normalize_author(entry$author) %||% "Unknown"
   year <- entry$year %||% "n.d."
   title <- entry$title %||% entry$key
   note <- entry$note

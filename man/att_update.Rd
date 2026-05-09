@@ -26,8 +26,9 @@ att_update(
 
 \item{publisher}{New publisher name.}
 
-\item{author}{New author name. If not set, \code{publisher} is used for
-citations.}
+\item{author}{New author name(s). A single string or a character vector
+(e.g., \code{c("Smith, Jane", "Doe, John")}), joined with \code{" and "} in BibTeX
+output. If not set, \code{publisher} is used for citations.}
 
 \item{year}{New publication year.}
 

@@ -32,6 +32,30 @@ test_that("resolve_source_name rejects invalid input", {
   expect_error(attest:::resolve_source_name(c("a", "b")))
 })
 
+test_that("normalize_author returns NULL for NULL input", {
+  expect_null(attest:::normalize_author(NULL))
+})
+
+test_that("normalize_author returns scalar string unchanged", {
+  expect_equal(attest:::normalize_author("Smith, Jane"), "Smith, Jane")
+})
+
+test_that("normalize_author joins character vector with ' and '", {
+  expect_equal(
+    attest:::normalize_author(c("Smith, Jane", "Doe, John")),
+    "Smith, Jane and Doe, John"
+  )
+})
+
+test_that("normalize_author handles list from JSON round-trip", {
+  # jsonlite::read_json() returns a list for JSON arrays
+  as_list <- list("Smith, Jane", "Doe, John")
+  expect_equal(
+    attest:::normalize_author(as_list),
+    "Smith, Jane and Doe, John"
+  )
+})
+
 test_that("att_request sets user-agent and timeout", {
   req <- attest:::att_request("https://example.com")
   expect_s3_class(req, "httr2_request")

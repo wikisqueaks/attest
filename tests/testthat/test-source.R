@@ -42,6 +42,24 @@ test_that("att_source merges explicit and list metadata", {
   expect_equal(src$metadata$license, "CC-BY-4.0")
 })
 
+test_that("att_source stores character vector author", {
+  src <- att_source(
+    name = "multi-author",
+    data_urls = "https://example.com/data.csv",
+    author = c("Smith, Jane", "Doe, John")
+  )
+  expect_equal(src$metadata$author, c("Smith, Jane", "Doe, John"))
+})
+
+test_that("print.att_source does not error with vector author", {
+  src <- att_source(
+    name = "multi-author",
+    data_urls = "https://example.com/data.csv",
+    author = c("Smith, Jane", "Doe, John")
+  )
+  expect_no_error(print(src))
+})
+
 test_that("print.att_source runs without error", {
   src <- att_source(
     name = "test",
